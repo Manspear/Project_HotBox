@@ -31,18 +31,38 @@ void onMeshTopoChange(MObject &node, void *clientData)
 	MGlobal::displayInfo("TOPOLOGY!");
 }
 
+void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+{
+
+}
+
 void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     /*
     This will be a vertex.
     */
+
+	if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+	{
+		MStatus res;
+		MObject temp = plug.node();
+		MFnMesh meshFn(temp, &res);
+		if (res == MStatus::kSuccess)
+		{
+			/*Will never enter this since "pts" is never isElement()*/
+			if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
+			{
+				MGlobal::displayInfo("THIS IS THE RIGHT WAY TO GET VERTICES!!! " + plug.name());
+			}
+		}
+	}
+
 	if (msg & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
 		MStatus res;
-		MObject obj = plug.node(&res);; //this by itself returns kDoubleLinearAttribute
+		MObject obj = plug.node(&res);
 		if (res == MStatus::kSuccess)
 		{
-			//MGlobal::displayInfo("Success!");
 			MFnTransform transFn(obj, &res);
 			if (res == MStatus::kSuccess)
 			{
@@ -77,10 +97,6 @@ void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &ot
 	}
     else if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
     {
-        //MStatus result;
-        //MObject objecto = plug.attribute(&result);
-        //MGlobal::displayInfo(MString("MOOOOOOOOOOOOO ") + plug.name() + MString(" ") + objecto.apiTypeStr());
-
         MObject obj = plug.node();
         MStatus res;
         if (!plug.isArray())
@@ -97,8 +113,6 @@ void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &ot
                     }                
                 }
             }
-            
-            //MGlobal::displayInfo("Non array: " + plug.name() + " Belonging to: " + obj.apiTypeStr());
         } 
     }
 }
@@ -312,7 +326,7 @@ void onElapsedTime(float elapsedTime, float lastTime, void *clientData)
 {
     static float totTime = 0;
     totTime += elapsedTime;
-    MGlobal::displayInfo("Time since last time: " + MString() + elapsedTime + " Elapsed Time: " + MString() + totTime );
+   // MGlobal::displayInfo("Time since last time: " + MString() + elapsedTime + " Elapsed Time: " + MString() + totTime );
 }
 
 void iterateScene()
