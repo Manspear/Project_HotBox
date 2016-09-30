@@ -3,9 +3,13 @@
 #include "MayaIncludes.h"
 #include "HelloWorldCmd.h"
 #include <iostream>
+#include <vector>
 using namespace std;
 
 MCallbackIdArray ids;
+
+std::vector<MObject> queueList;
+
 /*e for enum*/
 enum eMyNodeType
 {
@@ -18,6 +22,24 @@ enum eMyNodeType
 void* HelloWorld::creator() { 
 	return new HelloWorld;
 };
+
+void ObtainNormals(MFnMesh &mesh)
+{
+	MFloatVectorArray normals;
+
+	mesh.getNormals(normals, MSpace::kObject);
+
+	for (int nId = 0; nId < normals.length(); nId++)
+	{
+		MVector normalVector = normals[nId];
+
+		MGlobal::displayInfo(MString("Normals (Index = ") + nId +
+			MString(") X: ") + MString() + normalVector[0] +
+			MString(" Y: ") + normalVector[1] +
+			MString(" Z: ") + normalVector[2]);
+	}
+}
+
 MStatus HelloWorld::doIt(const MArgList& argList)
 {
 	MGlobal::displayInfo("Hello World!");
@@ -117,9 +139,15 @@ void meshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
     MCallbackId id;
+
     MFnMesh meshFn(node, &res);
     if (res == MStatus::kSuccess)
     {
+		if (queueList.size() > 0) {
+
+			queueList.clear();
+		}
+
         id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
@@ -138,7 +166,17 @@ void meshAddCbks(MObject& node, void* clientData)
         {
             ids.append(id);
         }
+
+		/*Retrieve normals from the added mesh.*/
+		ObtainNormals(meshFn);
     }
+
+	else
+	{
+		/*If the MObject could not be converted to a NODE type, add this to the queueList
+		and wait until the conversion can be performed later.*/
+		queueList.push_back(node);
+	}
 }
 
 void transAddCbks(MObject& node, void* clientData)
@@ -313,6 +351,14 @@ void onElapsedTime(float elapsedTime, float lastTime, void *clientData)
     static float totTime = 0;
     totTime += elapsedTime;
     MGlobal::displayInfo("Time since last time: " + MString() + elapsedTime + " Elapsed Time: " + MString() + totTime );
+
+	/*If the queue list is filled with nodes that could not be converted to different NODE types, we call upon
+	onNodeCreate with the node from the list as a ARGUMENT.*/
+	if (queueList.size() > 0) {
+
+		onNodeCreate(queueList[0], NULL);
+	}
+		 
 }
 
 void iterateScene()
