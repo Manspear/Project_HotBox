@@ -4,15 +4,15 @@
 #include "HelloWorldCmd.h"
 #include <iostream>
 #include <vector>
+#include <map>
 #include <queue>
 using namespace std;
 
 MCallbackIdArray ids;
-//std::vector<MObject> queueList;
 std::queue<MObject> queueList;
 
 /*e for enum*/
-enum eMyNodeType
+enum eNodeType
 {
     mesh,
     transform,
@@ -28,10 +28,97 @@ MStatus HelloWorld::doIt(const MArgList& argList)
 	MGlobal::displayInfo("Hello World!");
 	return MS::kSuccess;
 };
+
+void fLoadMesh(MFnMesh& mesh)
+{
+    struct sPoint
+    {
+        float x, y, z;
+    };
+    struct sUV
+    {
+        float u, v;
+    };
+    struct sNormal
+    {
+        float x, y, z;
+    };
+
+    std::vector<sUV> uv;
+    std::vector<sPoint> pnt;
+    std::vector<sNormal> nor;
+
+    MFloatArray uArr;
+    MFloatArray vArr;
+    mesh.getUVs(uArr, vArr);
+
+    MFloatPointArray pointArr;
+    mesh.getPoints(pointArr, MSpace::kObject);
+
+    sPoint tempPoint;
+    for (int i = 0; i < pointArr.length(); i++)
+    {
+        tempPoint.x = pointArr[i].x;
+        tempPoint.y = pointArr[i].y;
+        tempPoint.z = pointArr[i].z;
+        pnt.push_back(tempPoint);
+    }
+
+    sUV tempUV;
+    for (int i = 0; i < uArr.length(); i++)
+    {
+        tempUV.u = uArr[i];
+        tempUV.v = vArr[i];
+        uv.push_back(tempUV);
+        MGlobal::displayInfo("UV: " + MString() + uv[i].u + " " + uv[i].v);
+    }
+
+    MFloatVectorArray norArr;
+    mesh.getNormals(norArr, MSpace::kObject);
+    sNormal tempNor;
+    for (int i = 0; i < norArr.length(); i++)
+    {
+        tempNor.x = norArr[i].x;
+        tempNor.y = norArr[i].y;
+        tempNor.z = norArr[i].z;
+        nor.push_back(tempNor);
+
+        MGlobal::displayInfo("Nor: " + MString() + norArr[i].x + " " + norArr[i].y + " " + norArr[i].z);
+    }
+    
+    MStringArray uvSetNames;
+    mesh.getUVSetNames(uvSetNames);
+    //We only support one UV set
+    MObjectArray texArr;
+    for (int i = 0; i < uvSetNames.length(); i++)
+    {
+        mesh.getAssociatedUVSetTextures(uvSetNames[i], texArr);
+    }
+    /*
+    Maya uses the term "id" instead of indices.
+    */
+    mesh.getTriangleOffsets();
+    mesh.getNormalIds();
+    mesh.getTangentId();
+    MIntArray uvShellIDs;
+
+    mesh.getUvShellsIds(;
+
+    for (int i = 0; i < pointArr.length(); i++)
+    {
+        MGlobal::displayInfo("Vertex: "+ MString() + pointArr[i].x + " " + pointArr[i].y + " " + pointArr[i].z);
+    }
+
+    for (int i = 0; i < texArr.length(); i++)
+    {
+        MGlobal::displayInfo(texArr[i].apiTypeStr());
+    }
+}
+
 /*
 Only seems to trigger when new vertices and/or edge loops are added.
 */
-void onMeshTopoChange(MObject &node, void *clientData)
+void fOnMeshTopoChange(MObject &node, void *clientData)
 {
 	MGlobal::displayInfo("TOPOLOGY!");
     MStatus res;
@@ -42,7 +129,7 @@ void onMeshTopoChange(MObject &node, void *clientData)
     }
 }
 
-void onMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
     {
@@ -59,11 +146,12 @@ void onMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &ot
                 if (res == MStatus::kSuccess)
                     MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
             }
+            fLoadMesh(meshFn);
         }
     }
 }
 
-void onTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
     {
@@ -95,7 +183,7 @@ void onTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlu
     }
 }
 
-void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
 	if (msg & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
@@ -157,37 +245,37 @@ void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &ot
     }
 }
 
-void onNodeAttrAddedRemoved(MNodeMessage::AttributeMessage msg, MPlug &plug, void *clientData)
+void fOnNodeAttrAddedRemoved(MNodeMessage::AttributeMessage msg, MPlug &plug, void *clientData)
 {
 	MGlobal::displayInfo("Attribute Added or Removed! " + plug.info());
 }
 
-void onComponentChange(MUintArray componentIds[], unsigned int count, void *clientData)
+void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *clientData)
 {
     MGlobal::displayInfo("I AM CHANGED!");
 }
 
-void meshAddCbks(MObject& node, void* clientData)
+void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
     MCallbackId id;
     MFnMesh meshFn(node, &res);
     if (res == MStatus::kSuccess)
     {
-        id = MNodeMessage::addAttributeChangedCallback(node, onMeshAttrChange, NULL, &res);
+        id = MNodeMessage::addAttributeChangedCallback(node, fOnMeshAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
-        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, onNodeAttrAddedRemoved, NULL, &res);
+        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
 
-        id = MPolyMessage::addPolyTopologyChangedCallback(node, onMeshTopoChange, NULL, &res);
+        id = MPolyMessage::addPolyTopologyChangedCallback(node, fOnMeshTopoChange, NULL, &res);
         if (res == MStatus::kSuccess)
         {
             ids.append(id);
         }
         bool arr[4]{ true, false, false, false };
-        id = MPolyMessage::addPolyComponentIdChangedCallback(node, arr, 4, onComponentChange, NULL, &res);
+        id = MPolyMessage::addPolyComponentIdChangedCallback(node, arr, 4, fOnComponentChange, NULL, &res);
         if (res == MStatus::kSuccess)
         {
             ids.append(id);
@@ -195,13 +283,13 @@ void meshAddCbks(MObject& node, void* clientData)
     }
 }
 
-void transAddCbks(MObject& node, void* clientData)
+void fTransAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
     MCallbackId id;
     MFnTransform transFn(node, &res);
     if (res == MStatus::kSuccess)
-        id = MNodeMessage::addAttributeChangedCallback(node, onTransformAttrChange, NULL, &res);
+        id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, NULL, &res);
     if (res == MStatus::kSuccess)
     {
         ids.append(id);
@@ -209,84 +297,89 @@ void transAddCbks(MObject& node, void* clientData)
  
 }
 
-void dagNodeAddCbks(MObject& node, void* clientData)
+void fDagNodeAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
     MFnDagNode dagFn(node, &res);
     if(res == MStatus::kSuccess)
     {
-        MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
+        MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnNodeAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
-        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, onNodeAttrAddedRemoved, NULL, &res);
+        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
     }    
 }
 
-void onNodeCreate(MObject& node, void *clientData)
+void fOnNodeCreate(MObject& node, void *clientData)
 {
-    eMyNodeType nt = eMyNodeType::notHandled;
-    MStatus res;
+    eNodeType nt = eNodeType::notHandled;
+    MStatus res = MStatus::kNotImplemented;
 
     MGlobal::displayInfo("GOT INTO NODECREATE!");
     if (node.hasFn(MFn::kMesh))
     {
-        nt = eMyNodeType::mesh; MGlobal::displayInfo("MESH!");
+        nt = eNodeType::mesh; MGlobal::displayInfo("MESH!");
     }
     else if (node.hasFn(MFn::kTransform))
     {
-        nt = eMyNodeType::transform; MGlobal::displayInfo("TRANSFORM!");
+        nt = eNodeType::transform; MGlobal::displayInfo("TRANSFORM!");
     }
     else if (node.hasFn(MFn::kDagNode))
     {
-        nt = eMyNodeType::dagNode; MGlobal::displayInfo("NODE!");
+        nt = eNodeType::dagNode; MGlobal::displayInfo("NODE!");
     }
-    /*Test code for finding UVs...*/
-    //MStatus res;
-    //MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
-    //if (res == MStatus::kSuccess)
-    //    ids.append(id);
+
     switch (nt)
     {
-        case(eMyNodeType::mesh):
+        case(eNodeType::mesh):
         {
             MFnMesh meshFn(node, &res);
             if (res == MStatus::kSuccess)
-                meshAddCbks(node, clientData);
+            {
+                fMeshAddCbks(node, clientData);
+                fLoadMesh(meshFn);
+            }
             break;
         }
-        case(eMyNodeType::transform):
+        case(eNodeType::transform):
         {
             MFnTransform transFn(node, &res);
             if (res == MStatus::kSuccess)
-                transAddCbks(node, clientData);
+                fTransAddCbks(node, clientData);
             break;
         }
-        case(eMyNodeType::dagNode):
+        case(eNodeType::dagNode):
         {
             MFnDagNode dagFn(node, &res);
             if (res == MStatus::kSuccess)
-                dagNodeAddCbks(node, clientData);
+                fDagNodeAddCbks(node, clientData);
             break;
         }
-        case(eMyNodeType::notHandled):
+        case(eNodeType::notHandled):
         {
             break;
         }
     }
 
-    if (res != MStatus::kSuccess)
-        queueList.push(node);
-    else
-        if (*(bool*)clientData == true)
+        if (res != MStatus::kSuccess && nt == eNodeType::mesh || res != MStatus::kSuccess && nt == eNodeType::transform)
         {
-            queueList.pop();
-            delete clientData;
+            MGlobal::displayInfo("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
+            queueList.push(node);
+        }
+        if (clientData != NULL)
+        {
+            if (*(bool*)clientData == true && res == MStatus::kSuccess)
+            {
+                MGlobal::displayInfo("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+                queueList.pop();
+                delete clientData;
+            }
         }
 }
 
-void onNodeNameChange(MObject &node, const MString &str, void *clientData)
+void fOnNodeNameChange(MObject &node, const MString &str, void *clientData)
 {
     MStatus res = MStatus::kSuccess;
 
@@ -327,16 +420,17 @@ void onNodeNameChange(MObject &node, const MString &str, void *clientData)
     
 }
 
-void onElapsedTime(float elapsedTime, float lastTime, void *clientData)
+void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
 {
     if (queueList.size() > 0)
     {
+        MGlobal::displayInfo("TIME");
         bool* isRepeat = new bool(true);
-        onNodeCreate(queueList.front(), isRepeat);
+        fOnNodeCreate(queueList.front(), isRepeat);
     }
 }
 
-void iterateScene()
+void fIterateScene()
 {
     MStatus res;
     MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
@@ -345,7 +439,7 @@ void iterateScene()
     {
         while (!nodeIt.isDone())
         {
-            onNodeCreate(nodeIt.currentItem(), NULL);
+            fOnNodeCreate(nodeIt.currentItem(), NULL);
             nodeIt.next();
         }
     }
@@ -374,7 +468,7 @@ EXPORT MStatus initializePlugin(MObject obj)
 	// otherwise it has not.
    
 	MCallbackId temp;
-	temp = MDGMessage::addNodeAddedCallback(onNodeCreate,
+	temp = MDGMessage::addNodeAddedCallback(fOnNodeCreate,
 		kDefaultNodeType,
 		NULL,
 		&res
@@ -384,19 +478,19 @@ EXPORT MStatus initializePlugin(MObject obj)
         MGlobal::displayInfo("nodeAdded success!");
         ids.append(temp);
     }
-    temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, onNodeNameChange, NULL, &res);
+    temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
     if (res == MStatus::kSuccess)
     {
         MGlobal::displayInfo("nameChange success!");
         ids.append(temp);
     }
-    temp = MTimerMessage::addTimerCallback(0.01, onElapsedTime, NULL, &res);
+    temp = MTimerMessage::addTimerCallback(1, fOnElapsedTime, NULL, &res);
     if (res == MStatus::kSuccess)
     {
         MGlobal::displayInfo("timerFunc success!");
         ids.append(temp);
     }
-    iterateScene();
+    fIterateScene();
 
 	return res;
 }
