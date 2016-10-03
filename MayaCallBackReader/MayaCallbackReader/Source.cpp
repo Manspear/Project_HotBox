@@ -3,9 +3,14 @@
 #include "MayaIncludes.h"
 #include "HelloWorldCmd.h"
 #include <iostream>
+#include <vector>
+#include <queue>
 using namespace std;
 
 MCallbackIdArray ids;
+//std::vector<MObject> queueList;
+std::queue<MObject> queueList;
+
 /*e for enum*/
 enum eMyNodeType
 {
@@ -29,6 +34,12 @@ Only seems to trigger when new vertices and/or edge loops are added.
 void onMeshTopoChange(MObject &node, void *clientData)
 {
 	MGlobal::displayInfo("TOPOLOGY!");
+    MStatus res;
+    MFnMesh meshFn(node, &res);
+    if (res == MStatus::kSuccess)
+    {
+        //loadMesh // reloadMesh
+    }
 }
 
 void onMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
@@ -86,10 +97,6 @@ void onTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlu
 
 void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-    /*
-    This will be a vertex.
-    */
-
 	if (msg & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
 		MStatus res;
@@ -220,6 +227,7 @@ void dagNodeAddCbks(MObject& node, void* clientData)
 void onNodeCreate(MObject& node, void *clientData)
 {
     eMyNodeType nt = eMyNodeType::notHandled;
+    MStatus res;
 
     MGlobal::displayInfo("GOT INTO NODECREATE!");
     if (node.hasFn(MFn::kMesh))
@@ -243,17 +251,23 @@ void onNodeCreate(MObject& node, void *clientData)
     {
         case(eMyNodeType::mesh):
         {
-            meshAddCbks(node, clientData);
+            MFnMesh meshFn(node, &res);
+            if (res == MStatus::kSuccess)
+                meshAddCbks(node, clientData);
             break;
         }
         case(eMyNodeType::transform):
         {
-            transAddCbks(node, clientData);
+            MFnTransform transFn(node, &res);
+            if (res == MStatus::kSuccess)
+                transAddCbks(node, clientData);
             break;
         }
         case(eMyNodeType::dagNode):
         {
-            dagNodeAddCbks(node, clientData);
+            MFnDagNode dagFn(node, &res);
+            if (res == MStatus::kSuccess)
+                dagNodeAddCbks(node, clientData);
             break;
         }
         case(eMyNodeType::notHandled):
@@ -262,56 +276,14 @@ void onNodeCreate(MObject& node, void *clientData)
         }
     }
 
-    //MStatus res;
-    ////MFnMesh mesh(node, &res);
-    //MFnMesh meshFn(node, &res);
-    //if (res == MStatus::kSuccess)
-    //{
-    //    MGlobal::displayInfo("CREATE: Mesh name: " + meshFn.name());
-
-    //    MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
-    //    if (res == MStatus::kSuccess)
-    //        ids.append(id);
-    //    id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, onNodeAttrAddedRemoved, NULL, &res);
-    //    if (res == MStatus::kSuccess)
-    //        ids.append(id);
-    //}
-    //else
-    //{
-    //    MFnDagNode dagFn(node, &res);
-    //    if (res = MStatus::kSuccess)
-    //    {
-    //        MGlobal::displayInfo("CREATE: Node name: " + dagFn.name() + " Node type: " + node.apiTypeStr());
-
-    //        MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
-    //        if (res == MStatus::kSuccess)
-    //            ids.append(id);
-    //        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, onNodeAttrAddedRemoved, NULL, &res);
-    //        if (res == MStatus::kSuccess)
-    //            ids.append(id);
-    //    }
-    //}
-
-    //if (node.hasFn(MFn::kMesh))
-    //{
-    //    MCallbackId id = MPolyMessage::addPolyTopologyChangedCallback(node, onMeshTopoChange, NULL, &res);
-    //    if (res == MStatus::kSuccess)
-    //    {
-    //        ids.append(id);
-    //        MGlobal::displayInfo("HEYEYE");
-    //    }
-    //}
-
-    //if (node.hasFn(MFn::kTransform))
-    //{
-    //    MGlobal::displayInfo("Node transform: " + MFnTransform(node).name());
-
-    //    MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
-    //    if (res == MStatus::kSuccess)
-    //    {
-    //        ids.append(id);
-    //    }
-    //}
+    if (res != MStatus::kSuccess)
+        queueList.push(node);
+    else
+        if (*(bool*)clientData == true)
+        {
+            queueList.pop();
+            delete clientData;
+        }
 }
 
 void onNodeNameChange(MObject &node, const MString &str, void *clientData)
@@ -357,9 +329,11 @@ void onNodeNameChange(MObject &node, const MString &str, void *clientData)
 
 void onElapsedTime(float elapsedTime, float lastTime, void *clientData)
 {
-    static float totTime = 0;
-    totTime += elapsedTime;
-   // MGlobal::displayInfo("Time since last time: " + MString() + elapsedTime + " Elapsed Time: " + MString() + totTime );
+    if (queueList.size() > 0)
+    {
+        bool* isRepeat = new bool(true);
+        onNodeCreate(queueList.front(), isRepeat);
+    }
 }
 
 void iterateScene()
@@ -416,8 +390,7 @@ EXPORT MStatus initializePlugin(MObject obj)
         MGlobal::displayInfo("nameChange success!");
         ids.append(temp);
     }
-
-    temp = MTimerMessage::addTimerCallback(5, onElapsedTime, NULL, &res);
+    temp = MTimerMessage::addTimerCallback(0.01, onElapsedTime, NULL, &res);
     if (res == MStatus::kSuccess)
     {
         MGlobal::displayInfo("timerFunc success!");
