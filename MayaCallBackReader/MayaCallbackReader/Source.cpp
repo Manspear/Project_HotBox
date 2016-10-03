@@ -31,9 +31,57 @@ void onMeshTopoChange(MObject &node, void *clientData)
 	MGlobal::displayInfo("TOPOLOGY!");
 }
 
-void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void onMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
+    if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+    {
+        MStatus res;
+        MObject temp = plug.node();
+        MFnMesh meshFn(temp, &res);
+        if (res == MStatus::kSuccess)
+        {
+            /*When a mesh point gets changed*/
+            if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
+            {
+                MPoint aPoint;
+                res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
+                if (res == MStatus::kSuccess)
+                    MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
+            }
+        }
+    }
+}
 
+void onTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+{
+    if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+    {
+        MObject obj = plug.node();
+        MStatus res;
+        if (!plug.isArray())
+        {
+            if (obj.hasFn(MFn::kTransform))
+            {
+                MFnTransform fnTra(obj, &res);
+                if (res == MStatus::kSuccess)
+                {
+                    MTransformationMatrix transMat = fnTra.transformation();
+                    MTransformationMatrix::RotationOrder rotOrder;
+                    double rot[3];
+                    double scale[3];
+                    MVector trans = transMat.getTranslation(MSpace::kWorld);
+                    transMat.getRotation(rot, rotOrder);
+                    transMat.getScale(scale, MSpace::kObject);
+
+                    MFnAttribute fnAtt(plug.attribute(), &res);
+                    if (res == MStatus::kSuccess)
+                    {
+                        MGlobal::displayInfo("Transform node: " + fnTra.name() + " Trans: " + trans.x + " " + trans.y + " " + trans.z + " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] + " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
@@ -41,21 +89,6 @@ void onNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &ot
     /*
     This will be a vertex.
     */
-
-	if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
-	{
-		MStatus res;
-		MObject temp = plug.node();
-		MFnMesh meshFn(temp, &res);
-		if (res == MStatus::kSuccess)
-		{
-			/*Will never enter this since "pts" is never isElement()*/
-			if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
-			{
-				MGlobal::displayInfo("THIS IS THE RIGHT WAY TO GET VERTICES!!! " + plug.name());
-			}
-		}
-	}
 
 	if (msg & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
@@ -134,7 +167,7 @@ void meshAddCbks(MObject& node, void* clientData)
     MFnMesh meshFn(node, &res);
     if (res == MStatus::kSuccess)
     {
-        id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
+        id = MNodeMessage::addAttributeChangedCallback(node, onMeshAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
         id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, onNodeAttrAddedRemoved, NULL, &res);
@@ -161,7 +194,7 @@ void transAddCbks(MObject& node, void* clientData)
     MCallbackId id;
     MFnTransform transFn(node, &res);
     if (res == MStatus::kSuccess)
-        id = MNodeMessage::addAttributeChangedCallback(node, onNodeAttrChange, NULL, &res);
+        id = MNodeMessage::addAttributeChangedCallback(node, onTransformAttrChange, NULL, &res);
     if (res == MStatus::kSuccess)
     {
         ids.append(id);
