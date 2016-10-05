@@ -1,4 +1,5 @@
 *.suo
+/SceneViewer/Debug
 *.sdf
 *.opensdf
 *.layout
