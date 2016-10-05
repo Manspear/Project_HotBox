@@ -31,19 +31,6 @@ MStatus HelloWorld::doIt(const MArgList& argList)
 
 void fLoadMesh(MFnMesh& mesh)
 {
-    /*
-    What to put into the vertex shader:
-    *Shared by all*
-    list of points
-    list of uvs
-    list of normals
-
-    *For each individual vertex (per face per polygon)*
-    point index
-    uv index
-    normal index
-    */
-
     struct sPoint
     {
         float x, y, z;
@@ -61,226 +48,117 @@ void fLoadMesh(MFnMesh& mesh)
     std::vector<sPoint> pnt;
     std::vector<sNormal> nor;
 
-    MFloatArray uArr;
-    MFloatArray vArr;
-    mesh.getUVs(uArr, vArr);
-
-    /*GET RAW DATA*/
-
-    /*UV set names, we only need to support one*/
-    MStringArray uvSetNames;
-    mesh.getUVSetNames(uvSetNames);
-    //We only support one UV set
-    MObjectArray texArr;
-    for (int i = 0; i < uvSetNames.length(); i++)
-    {
-        mesh.getAssociatedUVSetTextures(uvSetNames[i], texArr);
-    }
-
-    MFloatPointArray pointArr;
-    mesh.getPoints(pointArr, MSpace::kObject);
-    sPoint tempPoint;
-    for (int i = 0; i < pointArr.length(); i++)
-    {
-        tempPoint.x = pointArr[i].x;
-        tempPoint.y = pointArr[i].y;
-        tempPoint.z = pointArr[i].z;
-        pnt.push_back(tempPoint);
-        MGlobal::displayInfo("Point: " + MString() + tempPoint.x + " " + tempPoint.y + " " + tempPoint.z);
-    }
-
-    sUV tempUV;
-    for (int i = 0; i < uArr.length(); i++)
-    {
-        tempUV.u = uArr[i];
-        tempUV.v = vArr[i];
-        uv.push_back(tempUV);
-        MGlobal::displayInfo("UV: " + MString() + uv[i].u + " " + uv[i].v);
-    }
-
-    MFloatVectorArray norArr;
-    mesh.getNormals(norArr, MSpace::kObject);
-    sNormal tempNor;
-    for (int i = 0; i < norArr.length(); i++)
-    {
-        tempNor.x = norArr[i].x;
-        tempNor.y = norArr[i].y;
-        tempNor.z = norArr[i].z;
-        nor.push_back(tempNor);
-
-        MGlobal::displayInfo("Nor: " + MString() + norArr[i].x + " " + norArr[i].y + " " + norArr[i].z);
-    }
-
-    /*GET INDICES*/
-
-    /*UVs for each vertex in each triangle*/
-    //mesh.getPolygonUV()
-
-    /*Normal IDs. Returns normal indices for all vertices for all faces. Used to index into the array returned by getNormals()*/
     MIntArray normalCnts;
     MIntArray normalIDs;
     mesh.getNormalIds(normalCnts, normalIDs);
 
-    /*Returns the number of triangles for every polygon face and the offset into the vertex indices array for each triangle vertex (see getVertices()). */
-    MIntArray triangleCounts; 
-    MIntArray triangleIndices; //I... Think this is used on all of the vertex-related id variables. Especially getVertices().
-    mesh.getTriangleOffsets(triangleCounts, triangleIndices);
-
-    /*Returns the object-relative vertex indices for all polygons. The indices refer to the elements in the array returned by getPoints()*/
-    MIntArray vertexCount; //Vertex count per polygon. 
-    MIntArray vertexList; 
-    mesh.getVertices(vertexCount, vertexList);
-
-    /*See which list is the largest (we guess normal list for now) and adapt all indexing after it's size. "Stretch" the data. */
-    
-    /*You construct the mesh in the shader in this manner. */
-
-    /*
-        I need the vertex data to be structured like: pos, nor, uv
-        Otherwise stuff won't work. 
-        
-        The vertices will have to be a conglomerate of "indexes". 
-        For cube:
-        pointIndices for a cube: 8
-        
-    */
-    
-    MIntArray pntIdTest;
-    MIntArray triIdTest;
-    MIntArray normalIdTest;
-    int counter = 0;
-    for (int i = 0; i < normalCnts.length(); i++)
-    {
-        for (int j = 0; j < normalCnts[i]; j++)
-        {
-            normalIdTest.append(normalIDs[j + counter]);
-        }
-        counter += normalCnts[i];
-    }
-    //For each triangle
-    counter = 0;
-    for (int i = 0; i < triangleCounts.length(); i++) //"Should" only have "index-ranges" between 0 and 7... But HAS from 0 to 35
-    {
-        ////0-35 mode
-        ////For each triangle in face
-        //for (int j = 0; j < triangleCounts[i]; j++)
-        //{
-        //    for(int k = 0; k < 3; k++)
-        //        triIdTest.append(triangleIndices[j + counter + k]);
-        //}
-        //counter += triangleCounts[i] * 3; 
-        //For each triangle in face
-        for (int j = 0; j < triangleCounts[i]; j++)
-        {
-            for(int k = 0; k < 3; k++)
-                triIdTest.append(triangleIndices[j + counter + k]);
-        }
-        counter += triangleCounts[i] * 3; 
-    }
-    /*__Count says "how many per polygon". As such we must loop through each polygon, loop through the number of "things" on that polygon, add the "things" count on top of a counter to be used next time*/
-    counter = 0;
-    for (int i = 0; i < vertexCount.length(); i++)
-    {
-        for (int j = 0; j < vertexCount[i]; j++) 
-        {
-            pntIdTest.append(vertexList[j + counter]);
-        }
-        counter += vertexCount[i];
-    }
-    //triangleCounts.length() == 12
-    //triangleCounts[0] == 1 --> if cube is triangulated. == 2 if quads. Literally "The number of triangles per polygon face"
-    //three triangleIndices per triangle. 
-    //So how to use triangleIndices:
-
-    //for (int i = 0; i < triIdTest.length(); i++)
-    //{
-    //    MGlobal::displayInfo(MString(" ") + triIdTest[i]);
-    //}
-    for (int i = 0; i < pntIdTest.length(); i++)
-    {
-        MGlobal::displayInfo(MString(" ") + pntIdTest[i]);
-    }
-
-    MGlobal::displayInfo(MString("VertexIndexList: ") + pntIdTest.length() + MString(" TriangleIndexList: ") + triIdTest.length() + MString(" NormalIndexList: ") + normalIdTest.length());
-
-
-    MGlobal::displayInfo(MString("VertList: ") + vertexList.length() + MString(" vertexCount ") + vertexCount.length() + MString(" TriangleIndices: ") + triangleIndices.length() + MString(" TriangleCount: ") + triangleCounts.length() + MString(" NormalIDs: ") + normalIDs.length() + MString(" NormalCount: ") + normalCnts.length());
-
-
-
     /*FUCK INDEXING! LET'S DO IT THE SHITTY WAY!!!*/
+    MStatus res;
     MIntArray triCnt;
-    MIntArray triVert;
+    MIntArray triVert; //vertex Ids for each tri vertex
+
+    struct sAllVertex
+    {
+        sUV uv;
+        sPoint pnt;
+        sNormal nor;
+    };
+
+    const float * rwPnts = mesh.getRawPoints(&res);
+    const float * rwNrmls = mesh.getRawNormals(&res);
+    //Use this to get the normal of this vertex.
+
+    MStringArray uvSetNames;
+    mesh.getUVSetNames(uvSetNames);
+
+    //"Vilken normal tillhör vilken vertis?" --> getTriangleOffsets()
+
+    std::vector<sAllVertex> allVert;
+    std::vector<MPoint> pntArr;
     mesh.getTriangles(triCnt, triVert);
-    MIntArray polygonVertices;
-    MVector normal;
-    float u;
-    float v;
-    int vertices[3];
-    //For each polygon, be it quad or triangle...
+    allVert.resize(triVert.length());
+    for (int i = 0; i < allVert.size(); i++)
+    {
+        sAllVertex tempAll;
+        MVector tempVec;
+        MPoint tempPoint;
+        mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);  //<-- These used!
+        mesh.getPoint(triVert[i], tempPoint, MSpace::kObject);
+
+        tempAll.pnt.x = tempPoint.x;
+        tempAll.pnt.y = tempPoint.y;
+        tempAll.pnt.z = tempPoint.z;
+
+        tempAll.nor.x = tempVec.x;
+        tempAll.nor.y = tempVec.y;
+        tempAll.nor.z = tempVec.z;
+
+        allVert[i] = tempAll;
+        
+        pntArr.push_back(tempPoint);
+    }
+    //float u;
+    //float v;
+    MFloatArray u;
+    MFloatArray v;
+    int polyOffset = 0;
     for (int i = 0; i < mesh.numPolygons(); i++)
     {
-        
-        for (int o = 0; o < triCnt.length(); o++)
+        int vertCnt = mesh.polygonVertexCount(i, &res);
+        if (res == MStatus::kSuccess)
         {
-            for (int j = 0; j < triVert[i]; j++)
+            for (int j = 0; j < vertCnt; j++)
             {
-                //Vertices seem to only be indexes to the MPoint-list
-                mesh.getPolygonTriangleVertices(i, o, vertices);
-                //mesh.getPolygonUV();
+                float2 uv;
+                MString* uvSetName = &uvSetNames[0];
+                //With this function Maya loops "forever"
+                int jiejie;
+                mesh.getUVAtPoint(pntArr[polyOffset], uv, MSpace::kObject, uvSetName, &jiejie);
+                mesh.getUVs(u, v, uvSetName);
+                //For each vertex, for each polygon. Meaning (for a cube) 8 * 3 = 24 UVs
+
+                //mesh.getPolygonUV(i, j, u, v, uvSetName);
+                
+                //Add UVs linearly..? Like 0, 1, 2, 3...
+                //polyOffset reaches 36... Somehow
+                
+                int meimei = j;
+                allVert[polyOffset].uv.u = uv[0];
+                allVert[polyOffset].uv.v = uv[1];
+                MGlobal::displayInfo(MString("Polyoffset: ") + polyOffset + MString(" closestPolygon: ") + jiejie);
+                MGlobal::displayInfo(MString("PolyOffset: ") + polyOffset + MString(" Setname: ") + *uvSetName + MString(" u: ") + uv[0] + MString(" v ") + uv[1]);
+                polyOffset += 1;
             }
-        }
-       
-        mesh.getPolygonNormal(i, normal);
-
-        mesh.getPolygonVertices(i, polygonVertices);
-
-        for (int j = 0; j < polygonVertices.length(); j++)
-        {
-            for (int k = 0; k < uvSetNames.length(); k++)
-            {
-                const MString nam = uvSetNames[k];
-                mesh.getPolygonUV(i, j, u, v, &nam);
-            }
-        }
-
-        //mesh.getTriangleOffset()
-        //mesh.polyTriangulate()
-
-       //Now, how to "split" the polygon if it is a quad or ngon?
-       //Below link is to an example that triangulates a mesh. Might be useful.
-       //http://help.autodesk.com/view/MAYAUL/2016/ENU/?guid=__cpp_ref_gpu_cache_2gpu_cache_util_8h_example_html
-        
+        } 
     }
 
+    /*
+    Bestäm kortaste avståndet mellan planet X och linje L. De är parallella. 
+    Ta en punkt på linjen. Ta en punkt på planet. Dra en vektor mellan dem. 
+    Du vet att planet och linjen är parallella. 
+    Ta två linjer, beräkna deras kryssprodukt.
+    Någon multipel av resultatet av kryssprodukten ligger i planet.
+    När du har hittat rätt multipel, vanlig trigonometri.
 
+    Elternativt:
+    När vektor mellan punkt på linje, och punkt på plan är beräknad (ej normaliserad)
+    Projicera den vektorn på planet. 
+    */
 
-
-
-
-
-
-
-
-
-
-   
-
-    ///*Prolly doesn't work*/
-    //MIntArray triVertices;
-    //MIntArray triCounts;
-    //mesh.getTriangles(triCounts, triVertices);
-    ////For each triangle
-    //for (int i = 0; i < triCounts.length(); i++)
-    //{
-    //    //For this triangle
-    //    for (int p = 0; p < triCounts[i]; p++)
-    //    {
-    //        //For this triangles vertices
-    //        for (int o = 0; o < triVertices[p]; o++)
-    //            mesh.getTangentId(p, o);
-    //    }
-    //}
+    MFloatArray uArr;
+    MFloatArray vArr;
+    mesh.getUVs(uArr, vArr, &uvSetNames[0]);
+    for (int i = 0; i < allVert.size(); i++)
+    {
+        /*
+        Alright. NumUvs never change even if the mesh is triangulated...
+        Which means that there exists "UV control points"
+        Which means, in turn, that you need a "UV index array" to get values from those UV control points.
+        So how do you get a UV index array?
+        */
+        MGlobal::displayInfo(MString("NumUVs: ") + uArr.length() + MString(" ") + vArr.length());
+        MGlobal::displayInfo(MString("Allvert.Size: ") + allVert.size() + MString(" Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
+    }
 }
 
 /*
