@@ -8,6 +8,24 @@
 #include <queue>
 using namespace std;
 
+struct sPoint
+{
+    float x, y, z;
+};
+struct sUV
+{
+    float u, v;
+};
+struct sNormal
+{
+    float x, y, z;
+};
+struct sAllVertex
+{
+    sUV uv;
+    sPoint pnt;
+    sNormal nor;
+};
 MCallbackIdArray ids;
 std::queue<MObject> queueList;
 
@@ -31,23 +49,6 @@ MStatus HelloWorld::doIt(const MArgList& argList)
 
 void fLoadMesh(MFnMesh& mesh)
 {
-    struct sPoint
-    {
-        float x, y, z;
-    };
-    struct sUV
-    {
-        float u, v;
-    };
-    struct sNormal
-    {
-        float x, y, z;
-    };
-
-    std::vector<sUV> uv;
-    std::vector<sPoint> pnt;
-    std::vector<sNormal> nor;
-
     MIntArray normalCnts;
     MIntArray normalIDs;
     mesh.getNormalIds(normalCnts, normalIDs);
@@ -57,107 +58,66 @@ void fLoadMesh(MFnMesh& mesh)
     MIntArray triCnt;
     MIntArray triVert; //vertex Ids for each tri vertex
 
-    struct sAllVertex
-    {
-        sUV uv;
-        sPoint pnt;
-        sNormal nor;
-    };
-
     const float * rwPnts = mesh.getRawPoints(&res);
     const float * rwNrmls = mesh.getRawNormals(&res);
-    //Use this to get the normal of this vertex.
 
     MStringArray uvSetNames;
     mesh.getUVSetNames(uvSetNames);
 
-    //"Vilken normal tillhör vilken vertis?" --> getTriangleOffsets()
-
     std::vector<sAllVertex> allVert;
-    std::vector<MPoint> pntArr;
+    MPointArray pntArr;
+    MVector tempVec;
+    MPoint tempPoint;
     mesh.getTriangles(triCnt, triVert);
     allVert.resize(triVert.length());
     for (int i = 0; i < allVert.size(); i++)
     {
-        sAllVertex tempAll;
-        MVector tempVec;
-        MPoint tempPoint;
         mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);  //<-- These used!
         mesh.getPoint(triVert[i], tempPoint, MSpace::kObject);
+        allVert[i].pnt.x = tempPoint.x;
+        allVert[i].pnt.y = tempPoint.y;
+        allVert[i].pnt.z = tempPoint.z;
+        allVert[i].nor.x = tempVec.x;
+        allVert[i].nor.y = tempVec.y;
+        allVert[i].nor.z = tempVec.z;
 
-        tempAll.pnt.x = tempPoint.x;
-        tempAll.pnt.y = tempPoint.y;
-        tempAll.pnt.z = tempPoint.z;
-
-        tempAll.nor.x = tempVec.x;
-        tempAll.nor.y = tempVec.y;
-        tempAll.nor.z = tempVec.z;
-
-        allVert[i] = tempAll;
-        
-        pntArr.push_back(tempPoint);
+        pntArr.append(tempPoint);
     }
-    //float u;
-    //float v;
     MFloatArray u;
     MFloatArray v;
-    int polyOffset = 0;
+    mesh.getUVs(u, v, &uvSetNames[0]);
+    MIntArray uvIndexArray;
+    int uvId;
+    int vertCnt;
+    int triangleVerts[3];
     for (int i = 0; i < mesh.numPolygons(); i++)
     {
-        int vertCnt = mesh.polygonVertexCount(i, &res);
+        vertCnt = mesh.polygonVertexCount(i, &res);
         if (res == MStatus::kSuccess)
         {
-            for (int j = 0; j < vertCnt; j++)
+            for (int j = 0; j < triCnt[i]; j++)
             {
-                float2 uv;
-                MString* uvSetName = &uvSetNames[0];
-                //With this function Maya loops "forever"
-                int jiejie;
-                mesh.getUVAtPoint(pntArr[polyOffset], uv, MSpace::kObject, uvSetName, &jiejie);
-                mesh.getUVs(u, v, uvSetName);
-                //For each vertex, for each polygon. Meaning (for a cube) 8 * 3 = 24 UVs
+                mesh.getPolygonTriangleVertices(i, j, triangleVerts);
 
-                //mesh.getPolygonUV(i, j, u, v, uvSetName);
-                
-                //Add UVs linearly..? Like 0, 1, 2, 3...
-                //polyOffset reaches 36... Somehow
-                
-                int meimei = j;
-                allVert[polyOffset].uv.u = uv[0];
-                allVert[polyOffset].uv.v = uv[1];
-                MGlobal::displayInfo(MString("Polyoffset: ") + polyOffset + MString(" closestPolygon: ") + jiejie);
-                MGlobal::displayInfo(MString("PolyOffset: ") + polyOffset + MString(" Setname: ") + *uvSetName + MString(" u: ") + uv[0] + MString(" v ") + uv[1]);
-                polyOffset += 1;
+                mesh.getPolygonUVid(i, triangleVerts[0], uvId);      
+                uvIndexArray.append(uvId);
+                mesh.getPolygonUVid(i, triangleVerts[1], uvId);
+                uvIndexArray.append(uvId);
+                mesh.getPolygonUVid(i, triangleVerts[2], uvId);
+                uvIndexArray.append(uvId);
             }
         } 
     }
-
-    /*
-    Bestäm kortaste avståndet mellan planet X och linje L. De är parallella. 
-    Ta en punkt på linjen. Ta en punkt på planet. Dra en vektor mellan dem. 
-    Du vet att planet och linjen är parallella. 
-    Ta två linjer, beräkna deras kryssprodukt.
-    Någon multipel av resultatet av kryssprodukten ligger i planet.
-    När du har hittat rätt multipel, vanlig trigonometri.
-
-    Elternativt:
-    När vektor mellan punkt på linje, och punkt på plan är beräknad (ej normaliserad)
-    Projicera den vektorn på planet. 
-    */
-
+    for (int i = 0; i < allVert.size(); i++)
+    {
+        mesh.getUV(uvIndexArray[i], allVert[i].uv.u, allVert[i].uv.v, &uvSetNames[0]);
+    }
     MFloatArray uArr;
     MFloatArray vArr;
     mesh.getUVs(uArr, vArr, &uvSetNames[0]);
     for (int i = 0; i < allVert.size(); i++)
     {
-        /*
-        Alright. NumUvs never change even if the mesh is triangulated...
-        Which means that there exists "UV control points"
-        Which means, in turn, that you need a "UV index array" to get values from those UV control points.
-        So how do you get a UV index array?
-        */
-        MGlobal::displayInfo(MString("NumUVs: ") + uArr.length() + MString(" ") + vArr.length());
-        MGlobal::displayInfo(MString("Allvert.Size: ") + allVert.size() + MString(" Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
+        MGlobal::displayInfo(MString("Finished Vertex: Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
     }
 }
 
@@ -411,14 +371,13 @@ void fOnNodeCreate(MObject& node, void *clientData)
 
         if (res != MStatus::kSuccess && nt == eNodeType::mesh || res != MStatus::kSuccess && nt == eNodeType::transform)
         {
-            MGlobal::displayInfo("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
             queueList.push(node);
         }
+
         if (clientData != NULL)
         {
             if (*(bool*)clientData == true && res == MStatus::kSuccess)
             {
-                MGlobal::displayInfo("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
                 queueList.pop();
                 delete clientData;
             }
