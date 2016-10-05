@@ -1,0 +1,6 @@
+﻿  0 File(s) copied
+  0 File(s) copied
+  HSceneViewer.cpp
+c:\users\bth\desktop\gameplay\sceneviewer\src\hsceneviewer.cpp(46): warning C4101: 'messageType': unreferenced local variable
+c:\users\bth\desktop\gameplay\sceneviewer\src\hsceneviewer.cpp(145): warning C4700: uninitialized local variable 'vertexList' used
+  SceneViewer.vcxproj -> C:\Users\BTH\Desktop\GamePlay\SceneViewer\Debug\SceneViewer.exe
