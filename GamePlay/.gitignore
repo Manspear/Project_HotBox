@@ -1,5 +1,4 @@
 *.suo
-/SceneViewer/Debug
 *.sdf
 *.opensdf
 *.layout
@@ -39,6 +38,9 @@ gameplay.xcworkspace/xcshareddata/gameplay.xccheckout
 /gameplay.xcworkspace/xcuserdata
 /gameplay/gameplay.xcodeproj/xcuserdata
 /gameplay/gameplay.vcxproj.user
+
+/SceneViewer/Debug
+*.obj
 
 /tools/encoder
 /tools/encoder/Debug
