@@ -3,7 +3,7 @@
 
 HMessageReader::HMessageReader()
 {
-	bufferSize = 1 << 20;
+	bufferSize = 10 << 20;
 	chunkSize = 256;
 	maxSize = bufferSize / 4;
 
@@ -26,6 +26,7 @@ HMessageReader::~HMessageReader()
 void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList)
 {
 	char* msg = new char[maxSize];
+
 	while (messageCount < numMessages)
 	{
 		size_t length;
@@ -68,7 +69,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.meshCount; i++)
 		{
 			/*Process meshdata.*/
-			processMesh(messageData);
+			processMesh(messageData, mainHeader.meshCount);
 		}
 
 		msgType = eNewMesh;
@@ -119,14 +120,58 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 	}
 }
 
-void HMessageReader::processMesh(char* messageData)
+void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
 {
-	/*Fill the meshlist vector for this process.*/
+	meshList.resize(meshCount);
+	meshVertexList.resize(meshCount);
+
+	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
+	{
+		/*Read the meshHeader from messageData.*/
+		hMeshHeader meshHeader;
+
+		meshHeader.meshName;
+		meshHeader.meshNameLength;
+		meshHeader.materialId;
+		meshHeader.parentName;
+		meshHeader.parentNameLength;
+		meshHeader.vertexCount;
+		
+		/*From the messageData, obtain the data from the hMeshHeader.*/
+		meshList[meshIndex].meshNameLength = meshHeader.meshNameLength;
+		meshList[meshIndex].meshName = meshHeader.meshName;
+
+		meshList[meshIndex].materialId = meshHeader.materialId;
+
+		meshList[meshIndex].meshNameLength = meshHeader.meshNameLength;
+		meshList[meshIndex].parentName = meshHeader.parentName;
+
+		meshList[meshIndex].vertexCount = meshHeader.vertexCount;
+
+		/*Resize the vertex list for each mesh with vertex count of each mesh.*/
+		meshVertexList[meshIndex].vertexList.resize(meshHeader.vertexCount);
+
+		for (int vertIndex = 0; vertIndex < meshVertexList.size(); vertIndex++)
+		{
+			/*From the messageData, convert the chars to float and fill the vertex List.*/
+			meshVertexList[meshIndex].vertexList[vertIndex].dPoints;
+			meshVertexList[meshIndex].vertexList[vertIndex].dNormal;
+			meshVertexList[meshIndex].vertexList[vertIndex].dUV;
+		}
+	}
 }
 
-void HMessageReader::getNewMesh(char * meshName, void * vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
+void HMessageReader::getNewMesh(const char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
 {
-	/*Use the meshlist vector to get the data.*/
+	/*Use the meshlist vector to get the data and the vertex list data for each mesh.*/
+	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
+	{
+		meshName = meshList[meshIndex].meshName;
+
+		numVertices = meshList[meshIndex].vertexCount;
+
+		vertexList = meshVertexList[meshIndex].vertexList;
+	}
 }
 
 void HMessageReader::getVertexUpdate(char * meshName, void * updatedVertexList, unsigned int * indexlist, unsigned int & numVerticesModified)

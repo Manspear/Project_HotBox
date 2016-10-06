@@ -4,6 +4,8 @@
 #include "MayaHeader.h"
 #include "CircularBuffer.h"
 
+#include <string>
+
 class HMessageReader
 {
 public:
@@ -46,8 +48,8 @@ public:
 	void read(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList);
 
 	/*Functions for processing mesh messages, getting the newly mesh data and also the updated vertices from the mesh.*/
-	void processMesh(char* messageData);
-	void getNewMesh(char* meshName, void* vertexList, unsigned int& numVertices, unsigned int* indexList, unsigned int& numIndices);
+	void processMesh(char* messageData, unsigned int meshCount);
+	void getNewMesh(const char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices);
 	void getVertexUpdate(char* meshName, void* updatedVertexList, unsigned int* indexlist, unsigned int& numVerticesModified);
 
 	/*Functions for processing material messages, getting the newly material data abd update a existing mesh material.*/

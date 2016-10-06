@@ -11,7 +11,7 @@ HSceneViewer::HSceneViewer()
 
 HSceneViewer::~HSceneViewer()
 {
-	/*Release all objects here.*/
+	delete msgReader;
 }
 
 void HSceneViewer::initialize()
@@ -19,20 +19,27 @@ void HSceneViewer::initialize()
 	/*By default create an empty scene, fill with the nodes we send from Maya.*/
 	_scene = Scene::create();
 
-	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	Node* cameraNode = Node::create();
-
 	msgReader = new HMessageReader();
 
+	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
+	Node* cameraNode = Node::create();
 	_scene->addNode(cameraNode);
-
 	Camera* cam = cameraNode->getCamera();
-
 	cam = Camera::createPerspective(0, 0, 0, 0);
-
 	cameraNode->setCamera(cam);
-
 	_scene->setActiveCamera(cam);
+	cameraNode->release();
+	cam->release();
+
+	/*Initialize a default point light to give the scene light, later a light from Maya will be loaded.*/
+	Node* lightNode = Node::create("pointLight");
+	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
+	lightNode->setLight(light);
+	lightNode->translate(Vector3(0.f, 0.f, 0.f));
+	_scene->addNode(lightNode);
+	lightNode->release();
+	light->release();
+	
 }
 
 void HSceneViewer::finalize()
@@ -136,7 +143,7 @@ void HSceneViewer::addMesh()
 {
 	bool meshAlreadyExists = false;
 
-	void* vertexList;
+	std::vector<hVertexHeader> vertexList;
 	unsigned int numVertices = 0;
 	unsigned int* indexList = nullptr;
 	unsigned int numIndex = 0;
@@ -173,7 +180,7 @@ void HSceneViewer::addMesh()
 	Mesh* mesh = Mesh::createMesh(verticesFormat, numVertices, false);
 
 	/*Set the vertex data for this mesh. HERE the vertex data should be used as argument.*/
-	mesh->setVertexData(vertexList, 0);
+	mesh->setVertexData(vertexList.data(), 0);
 
 	/*How the mesh is to be constructed in the shader.*/
 	MeshPart* meshPart = mesh->addPart(Mesh::PrimitiveType::TRIANGLES, Mesh::IndexFormat::INDEX32, numIndex, false);

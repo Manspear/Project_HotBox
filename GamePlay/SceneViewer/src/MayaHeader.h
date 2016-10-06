@@ -17,10 +17,13 @@ struct hMainHeader
 
 struct hMeshHeader
 {
-	char meshName[256];
+	unsigned int meshNameLength;
+	const char* meshName;
 
 	unsigned int materialId;
-	unsigned int transformId;
+
+	unsigned int parentNameLength;
+	char* parentName;
 
 	unsigned int vertexCount;
 };
@@ -53,7 +56,8 @@ static std::vector<hCameraHeader> cameraList;
 
 struct hTransformHeader
 {
-	char childName[256];
+	const char* childName;
+	unsigned int childNameLength;
 
 	float trans[3];
 	float rot[3];
