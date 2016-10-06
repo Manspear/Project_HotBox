@@ -145,14 +145,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CircularBuffer.cpp" />
+    <ClCompile Include="Consumer.cpp" />
+    <ClCompile Include="Mutex.cpp" />
+    <ClCompile Include="Producer.cpp" />
     <ClCompile Include="Source.cpp" />
     <ClCompile Include="Source1.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CircularBuffer.h" />
+    <ClInclude Include="Consumer.h" />
+    <ClInclude Include="FileMapStructs.h" />
     <ClInclude Include="HelloWorldCmd.h" />
+    <ClInclude Include="MayaHeader.h" />
     <ClInclude Include="MayaIncludes.h" />
+    <ClInclude Include="Mutex.h" />
+    <ClInclude Include="Producer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

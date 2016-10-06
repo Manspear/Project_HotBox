@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Circular Buffer">
+      <UniqueIdentifier>{f1ebade0-5dd1-497b-b67e-f32d8cefa2f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Circular Buffer\CircHeaders">
+      <UniqueIdentifier>{34ffec60-520e-4e0e-8eb7-b7d3dee30d8b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Circular Buffer\CircCpps">
+      <UniqueIdentifier>{f7508f21-3573-41b8-a7b6-926740265cc4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp">
@@ -21,6 +30,18 @@
     <ClCompile Include="Source1.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Producer.cpp">
+      <Filter>Circular Buffer\CircCpps</Filter>
+    </ClCompile>
+    <ClCompile Include="CircularBuffer.cpp">
+      <Filter>Circular Buffer\CircCpps</Filter>
+    </ClCompile>
+    <ClCompile Include="Consumer.cpp">
+      <Filter>Circular Buffer\CircCpps</Filter>
+    </ClCompile>
+    <ClCompile Include="Mutex.cpp">
+      <Filter>Circular Buffer\CircCpps</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MayaIncludes.h">
@@ -28,6 +49,24 @@
     </ClInclude>
     <ClInclude Include="HelloWorldCmd.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MayaHeader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CircularBuffer.h">
+      <Filter>Circular Buffer\CircHeaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Consumer.h">
+      <Filter>Circular Buffer\CircHeaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileMapStructs.h">
+      <Filter>Circular Buffer\CircHeaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Mutex.h">
+      <Filter>Circular Buffer\CircHeaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Producer.h">
+      <Filter>Circular Buffer\CircHeaders</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
