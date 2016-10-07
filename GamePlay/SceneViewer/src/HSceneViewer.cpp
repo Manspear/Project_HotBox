@@ -1,5 +1,4 @@
 #include "HSceneViewer.h"
-
 // Declare our game instance
 HSceneViewer game;
 
@@ -39,7 +38,6 @@ void HSceneViewer::initialize()
 	_scene->addNode(lightNode);
 	lightNode->release();
 	light->release();
-	
 }
 
 void HSceneViewer::finalize()

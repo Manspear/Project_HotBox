@@ -80,6 +80,7 @@ void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t & buffSize
 		varBuff->clientCounter++;
 		while (varBuff->producerExist == false)
 		{
+			printf("waiting\n");
 			Sleep(300);
 		}
 		varBuff->clientCounter--;

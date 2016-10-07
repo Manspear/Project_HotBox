@@ -12,6 +12,7 @@
 #include <time.h>
 using namespace std;
 
+void fMakeMeshMessage(MObject obj, bool isFromQueue);
 circularBuffer gCb;
 
 float gClockTime;
@@ -89,7 +90,7 @@ MStatus HelloWorld::doIt(const MArgList& argList)
 	return MS::kSuccess;
 };
 
-void fLoadMesh(MFnMesh& mesh, bool isFromQueue)
+void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVert)
 {
     MIntArray normalCnts;
     MIntArray normalIDs;
@@ -106,7 +107,7 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue)
     MStringArray uvSetNames;
     mesh.getUVSetNames(uvSetNames);
 
-    std::vector<sBuiltVertex> allVert;
+    //std::vector<sBuiltVertex> allVert;
     MPointArray pntArr;
     MVector tempVec;
     MPoint tempPoint;
@@ -399,7 +400,8 @@ void fOnNodeCreate(MObject& node, void *clientData)
             if (res == MStatus::kSuccess)
             {
                 fMeshAddCbks(node, clientData);
-                fLoadMesh(meshFn, false);
+                //fLoadMesh(meshFn, false);
+				fMakeMeshMessage(node, false);
             }
             break;
         }
@@ -496,16 +498,21 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
     }
     if (updateMeshQueue.size() > 0)
     {
-        fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
+        //fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
+		fMakeMeshMessage(updateMeshQueue.front(), true);
     }
     MGlobal::displayInfo(MString("MeshQueue LENGTH: ") + updateMeshQueue.size());
 }
 
-void fMakeMeshMessage(MObject obj, sMesh meshVertices)
+void fMakeMeshMessage(MObject obj, bool isFromQueue)
 {
     MStatus res;
 
+	std::vector<sBuiltVertex> meshVertices;
+
     MFnMesh mesh(obj);
+
+	fLoadMesh(mesh, isFromQueue, meshVertices);
 
     /*Have this function become awesome*/
     hMainHeader mainH;
@@ -520,7 +527,7 @@ void fMakeMeshMessage(MObject obj, sMesh meshVertices)
     meshH.materialId = 0;
     meshH.meshName = mesh.name().asChar();
     meshH.meshNameLen = mesh.name().length();
-    meshH.vertexCount = meshVertices.vertexList.size();
+    meshH.vertexCount = meshVertices.size();
     
     //Getting the first transform parent found. Will most likely be the direct parent.
     MObject parObj;
@@ -541,8 +548,6 @@ void fMakeMeshMessage(MObject obj, sMesh meshVertices)
     size_t meshHMem = sizeof(meshH);
     size_t meshVertexMem = sizeof(sBuiltVertex);
 
-    meshVertices.vertexList.data();
-
     int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + meshH.vertexCount * meshVertexMem;
 
     /*
@@ -555,7 +560,7 @@ void fMakeMeshMessage(MObject obj, sMesh meshVertices)
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.vertexList.data(), meshVertices.vertexList.size() * (size_t)meshVertexMem);
+    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * (size_t)meshVertexMem);
 
     size_t bufferSize = BUFFERSIZE;
     size_t maxMsgSize = MAXMSGSIZE;

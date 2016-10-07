@@ -6,6 +6,10 @@
 #include <vector>
 #include "FileMapStructs.h"
 #include "Mutex.h"
+
+#include <maya/MGlobal.h>
+//#include "MayaIncludes.h"
+
 class circularBuffer
 {
 private:
@@ -38,9 +42,9 @@ public:
     */
     void initCircBuffer(
         LPCWSTR msgBuffName,
-        const size_t& buffSize,
-        const int& role,
-        const size_t& chunkSize, // round up messages to multiple of this.
+        const size_t buffSize,
+        const int role,
+        const size_t chunkSize, // round up messages to multiple of this.
         LPCWSTR varBuffName
     );
 

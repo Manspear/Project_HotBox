@@ -43,9 +43,10 @@ void Producer::runProducer(circularBuffer& buffInst, char* msg, size_t packetSiz
 
 	while (messageCount < requestedMessages)
 	{
-		Sleep(delay);
+		//Sleep(delay);
 		while (!buffInst.push(msg, packetSize))
 		{
+			MGlobal::displayInfo(MString("Push failed"));
 			Sleep(1);
 		}
 

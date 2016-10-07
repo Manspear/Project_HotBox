@@ -1,6 +1,6 @@
 #include "CircularBuffer.h"
 
-void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t & buffSize, const int& role, const size_t & chunkSize, LPCWSTR varBuffBuffName)
+void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t buffSize, const int role, const size_t chunkSize, LPCWSTR varBuffBuffName)
 {
 	msgFileMap = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
