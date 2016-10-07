@@ -1,8 +1,8 @@
 #ifndef MESSAGEREADER_H
 #define MESSAGEREADER_H
 
-#include "MayaHeader.h"
 #include "CircularBuffer.h"
+#include "../../../MayaCallBackReader/MayaCallbackReader/MayaHeader.h"
 
 #include <string>
 
@@ -49,7 +49,7 @@ public:
 
 	/*Functions for processing mesh messages, getting the newly mesh data and also the updated vertices from the mesh.*/
 	void processMesh(char* messageData, unsigned int meshCount);
-	void getNewMesh(const char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices);
+	void getNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices);
 	void getVertexUpdate(char* meshName, void* updatedVertexList, unsigned int* indexlist, unsigned int& numVerticesModified);
 
 	/*Functions for processing material messages, getting the newly material data abd update a existing mesh material.*/

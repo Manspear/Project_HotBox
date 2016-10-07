@@ -24,7 +24,7 @@ float gDt30Fps;
 #define MAXMSGSIZE 2<<20
 //#define CHUNKSIZE 256
 
-#define CHUNKSIZE 256;
+#define CHUNKSIZE 256
 
 struct sPoint
 {
@@ -40,8 +40,8 @@ struct sNormal
 };
 struct sBuiltVertex
 {
+	sPoint pnt;
     sUV uv;
-    sPoint pnt;
     sNormal nor;
 };
 struct sMeshVertices
@@ -549,7 +549,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     size_t meshVertexMem = sizeof(sBuiltVertex);
 
     int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + meshH.vertexCount * meshVertexMem;
-
+	//int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + 5 * sizeof(float);
     /*
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
     check if a message is "active", if it's unactive, i.e already read, the queued thing may memcpy into it.
@@ -560,7 +560,14 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * (size_t)meshVertexMem);
+    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
+	
+	/*Test memcpy*/
+	/*std::vector<float> floater;
+	for (int i = 0; i < 5; i++)
+		floater.push_back(5);
+
+	memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, floater.data(), sizeof(float) * 5);*/
 
     size_t bufferSize = BUFFERSIZE;
     size_t maxMsgSize = MAXMSGSIZE;
@@ -675,7 +682,7 @@ EXPORT MStatus initializePlugin(MObject obj)
 
     gMeshUpdateTimer = 0;
 
-    gCb.initCircBuffer(TEXT("MessageBuffer"), 10, 0, 256, TEXT("VarBuffer"));
+    gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
 	return res;
 }

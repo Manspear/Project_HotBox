@@ -45,8 +45,8 @@ void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t buffSize, 
 		sizeof(sSharedVars)
 	);
 
-	this->buffSize = &buffSize;
-	this->chunkSize = &chunkSize;
+	this->buffSize = buffSize;
+	this->chunkSize = chunkSize;
 	varBuff->headPos = 0;
 	varBuff->tailPos = 0;
 	varBuff->freeMem = buffSize;
@@ -95,13 +95,13 @@ bool circularBuffer::push(const void * msg, size_t length)
 	bool res = false;
 	if (varBuff->clientCounter == 0)
 	{
-		size_t padding = *const_cast<size_t*>(chunkSize) - ((length + sizeof(sMsgHeader)) % *const_cast<size_t*>(chunkSize));
+		size_t padding = chunkSize - ((length + sizeof(sMsgHeader)) % chunkSize);
 		size_t totMsgLen = sizeof(sMsgHeader) + length + padding;
 		//if there's enough space for the message
 		if (varBuff->freeMem >= totMsgLen)
 		{
 			//if there's enough space at end of buffer, and if head is in front of tail
-			if (varBuff->headPos >= varBuff->tailPos && (totMsgLen <= (*buffSize - varBuff->headPos)))
+			if (varBuff->headPos >= varBuff->tailPos && (totMsgLen <= (buffSize - varBuff->headPos)))
 			{
 				res = pushMsg(false, false, msg, length, padding, totMsgLen);
 			}else 
@@ -167,11 +167,11 @@ bool circularBuffer::procMsg(char * msg, size_t * length)
 		size_t nextPos = varBuff->tailPos + readMsg->length + readMsg->padding;
 		
 
-		if(nextPos % *buffSize > 0)
+		if(nextPos % buffSize > 0)
 		{
 			varBuff->tailPos += readMsg->length + readMsg->padding;
 		}
-		if (nextPos % *buffSize == 0)
+		if (nextPos % buffSize == 0)
 		{
 			varBuff->tailPos = 0;
 		}
@@ -184,7 +184,7 @@ bool circularBuffer::procMsg(char * msg, size_t * length)
 	else
 	{
 		size_t nextTailPos = lTail + readMsg->length + readMsg->padding;
-		if (nextTailPos % *buffSize == 0)
+		if (nextTailPos % buffSize == 0)
 		{
 			lTail = 0;
 			return true;
@@ -227,7 +227,7 @@ bool circularBuffer::pushMsg(bool reset, bool start, const void * msg, size_t & 
 		//mutex1.unlock();
 		varBuff->freeMem -= totMsgLength;
 
-		if (varBuff->headPos >= *buffSize)
+		if (varBuff->headPos >= buffSize)
 			varBuff->headPos = 0;
 		return true;
 	}
@@ -240,7 +240,7 @@ bool circularBuffer::pushMsg(bool reset, bool start, const void * msg, size_t & 
 		newMsg->id = -1;
 		
 		newMsg->length = sizeof(sMsgHeader);
-		newMsg->padding = (*buffSize - lHeadPos) - sizeof(sMsgHeader);
+		newMsg->padding = (buffSize - lHeadPos) - sizeof(sMsgHeader);
 		
 		varBuff->freeMem -= sizeof(sMsgHeader) + newMsg->padding;
 		//Move the head to the start

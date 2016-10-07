@@ -27,6 +27,7 @@ void HSceneViewer::initialize()
 	cam = Camera::createPerspective(0, 0, 0, 0);
 	cameraNode->setCamera(cam);
 	_scene->setActiveCamera(cam);
+	cameraNode->setTranslation(Vector3(0, 0, -5));
 	cameraNode->release();
 	cam->release();
 
@@ -34,7 +35,7 @@ void HSceneViewer::initialize()
 	Node* lightNode = Node::create("pointLight");
 	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
 	lightNode->setLight(light);
-	lightNode->translate(Vector3(0.f, 0.f, 0.f));
+	lightNode->translate(Vector3(2.f, 2.f, 2.f));
 	_scene->addNode(lightNode);
 	lightNode->release();
 	light->release();
@@ -121,7 +122,7 @@ void HSceneViewer::update(float elapsedTime)
 void HSceneViewer::render(float elapsedTime)
 {
     // Clear the color and depth buffers
-	clear(CLEAR_COLOR_DEPTH, Vector4(0, 0, 0, 0), 1.0f, 0);
+	clear(CLEAR_COLOR_DEPTH, Vector4(1, 1, 1, 0), 1.0f, 0);
 
     // Visit all the nodes in the scene for drawing
     _scene->visit(this, &HSceneViewer::drawScene);
@@ -144,10 +145,16 @@ void HSceneViewer::addMesh()
 	std::vector<hVertexHeader> vertexList;
 	unsigned int numVertices = 0;
 	unsigned int* indexList = nullptr;
-	unsigned int numIndex = 0;
+	unsigned int numIndex = 36;
 	char* meshName = nullptr;
-
+	meshName = new char[128];
 	msgReader->getNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
+
+	indexList = new unsigned int[36];
+	for (int i = 0; i < 36; i++)
+	{
+		indexList[i] = i;
+	}
 
 	Node* meshNode = _scene->findNode(meshName);
 
@@ -164,13 +171,15 @@ void HSceneViewer::addMesh()
 		meshNode = Node::create(meshName);
 	}
 
+	delete[] meshName;
+
 	VertexFormat::Element elements[] = {
 		VertexFormat::Element(VertexFormat::POSITION, 3),
 		VertexFormat::Element(VertexFormat::TEXCOORD0, 2),
 		VertexFormat::Element(VertexFormat::NORMAL, 3),
 	};
 
-	const VertexFormat verticesFormat(elements, sizeof(elements));
+	const VertexFormat verticesFormat(elements, ARRAYSIZE(elements));
 
 	/*Assign the vertices data to the new mesh, using an index of some sort.*/
 
@@ -178,7 +187,7 @@ void HSceneViewer::addMesh()
 	Mesh* mesh = Mesh::createMesh(verticesFormat, numVertices, false);
 
 	/*Set the vertex data for this mesh. HERE the vertex data should be used as argument.*/
-	mesh->setVertexData(vertexList.data(), 0);
+	mesh->setVertexData(&vertexList[0], 0);
 
 	/*How the mesh is to be constructed in the shader.*/
 	MeshPart* meshPart = mesh->addPart(Mesh::PrimitiveType::TRIANGLES, Mesh::IndexFormat::INDEX32, numIndex, false);
@@ -188,7 +197,6 @@ void HSceneViewer::addMesh()
 
 	/*Create a new model which we set as Drawable for the node.*/
 	Model* meshModel = Model::create(mesh);
-	meshNode->setDrawable(meshModel);
 
 	/*Finally add this "MESHNODE" to the scene for rendering.*/
 	_scene->addNode(meshNode);

@@ -191,10 +191,10 @@ xcopy ..\..\GamePlay\gameplay\res\ui res\ui\* /s /y /d</Command>
     <ClCompile Include="src\Mutex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\MayaCallBackReader\MayaCallbackReader\MayaHeader.h" />
     <ClInclude Include="src\CircularBuffer.h" />
     <ClInclude Include="src\FileMapStructs.h" />
     <ClInclude Include="src\HSceneViewer.h" />
-    <ClInclude Include="src\MayaHeader.h" />
     <ClInclude Include="src\MessageReader.h" />
     <ClInclude Include="src\Mutex.h" />
   </ItemGroup>

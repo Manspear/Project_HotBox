@@ -1,9 +1,8 @@
-#include "MayaHeader.h"
 #include "MessageReader.h"
 
 HMessageReader::HMessageReader()
 {
-	bufferSize = 10 << 20;
+	bufferSize = 8 << 20;
 	chunkSize = 256;
 	maxSize = bufferSize / 4;
 
@@ -56,14 +55,9 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 	msgType = eDefault;
 
 	/*Read the main header to check what type of message to process.*/
-	hMainHeader mainHeader;
+	//messageData + sizeof(hMainHeader);
 
-	mainHeader.meshCount = 1;
-	mainHeader.lightCount = 0;
-	mainHeader.cameraCount = 0;
-	mainHeader.materialCount = 0;
-	mainHeader.transformCount = 0;
-
+	hMainHeader mainHeader = *(hMainHeader*)messageData;
 	if (mainHeader.meshCount > 0)
 	{
 		for (int i = 0; i < mainHeader.meshCount; i++)
@@ -120,6 +114,29 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 	}
 }
 
+struct sPoint
+{
+	float x, y, z;
+};
+struct sUV
+{
+	float u, v;
+};
+struct sNormal
+{
+	float x, y, z;
+};
+struct sBuiltVertex
+{
+	sPoint pnt;
+	sUV uv;
+	sNormal nor;
+};
+struct sMeshVertices
+{
+	std::vector<sBuiltVertex> vertices;
+};
+
 void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
 {
 	meshList.resize(meshCount);
@@ -128,45 +145,43 @@ void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
 	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
 	{
 		/*Read the meshHeader from messageData.*/
-		hMeshHeader meshHeader;
-
-		meshHeader.meshName;
-		meshHeader.meshNameLength;
-		meshHeader.materialId;
-		meshHeader.parentName;
-		meshHeader.parentNameLength;
-		meshHeader.vertexCount;
-		
+		hMeshHeader meshHeader = *(hMeshHeader*)(messageData + sizeof(hMainHeader));
+	
 		/*From the messageData, obtain the data from the hMeshHeader.*/
-		meshList[meshIndex].meshNameLength = meshHeader.meshNameLength;
-		meshList[meshIndex].meshName = meshHeader.meshName;
-
+		meshList[meshIndex].meshNameLen = meshHeader.meshNameLen;
 		meshList[meshIndex].materialId = meshHeader.materialId;
-
-		meshList[meshIndex].meshNameLength = meshHeader.meshNameLength;
-		meshList[meshIndex].parentName = meshHeader.parentName;
+		meshList[meshIndex].meshNameLen = meshHeader.meshNameLen;
 
 		meshList[meshIndex].vertexCount = meshHeader.vertexCount;
 
 		/*Resize the vertex list for each mesh with vertex count of each mesh.*/
 		meshVertexList[meshIndex].vertexList.resize(meshHeader.vertexCount);
 
-		for (int vertIndex = 0; vertIndex < meshVertexList.size(); vertIndex++)
-		{
-			/*From the messageData, convert the chars to float and fill the vertex List.*/
-			meshVertexList[meshIndex].vertexList[vertIndex].dPoints;
-			meshVertexList[meshIndex].vertexList[vertIndex].dNormal;
-			meshVertexList[meshIndex].vertexList[vertIndex].dUV;
-		}
+		/*These work*/
+		meshList[meshIndex].meshName = new char[meshHeader.meshNameLen + 1];
+		memcpy((void*)meshList[meshIndex].meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
+		meshList[meshIndex].meshName[meshHeader.meshNameLen] = '\0';
+		meshList[meshIndex].prntTransName = new char[meshHeader.prntTransNameLen + 1];
+		memcpy(meshList[meshIndex].prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
+		meshList[meshIndex].prntTransName = '\0';
+
+		//meshList[meshIndex].meshName = meshName;
+		//meshList[meshIndex].prntTransName = transName;
+		
+		std::vector<sBuiltVertex> meshVertices;
+		memcpy(&meshVertexList[meshIndex].vertexList.front(), messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen, meshHeader.vertexCount * sizeof(sBuiltVertex));
+	
+		meshVertexList[meshIndex].vertexList;
 	}
 }
 
-void HMessageReader::getNewMesh(const char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
+void HMessageReader::getNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
 {
 	/*Use the meshlist vector to get the data and the vertex list data for each mesh.*/
 	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
 	{
-		meshName = meshList[meshIndex].meshName;
+		memcpy(meshName, meshList[meshIndex].meshName, meshList[meshIndex].meshNameLen+1);
+		//meshName = meshList[meshIndex].meshName;
 
 		numVertices = meshList[meshIndex].vertexCount;
 

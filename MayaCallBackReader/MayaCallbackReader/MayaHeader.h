@@ -18,10 +18,10 @@ struct hMainHeader
 struct hMeshHeader
 {
     unsigned int meshNameLen;
-    const char* meshName;
+    char* meshName;
     unsigned int materialId;
     unsigned int prntTransNameLen;
-    const char* prntTransName;
+    char* prntTransName;
 
     unsigned int vertexCount;
 };
@@ -31,7 +31,7 @@ static std::vector<hMeshHeader> meshList;
 struct hVertexHeader
 {
     float dPoints[3];
-    float dUV[3];
+    float dUV[2];
     float dNormal[3];
 };
 

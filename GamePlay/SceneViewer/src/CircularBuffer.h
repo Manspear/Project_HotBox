@@ -16,7 +16,7 @@ private:
 		MSGSIZE = 1
 	};
 
-	const size_t * buffSize;
+	size_t buffSize;
 	size_t chunkSize;
 
 	HANDLE msgFileMap;

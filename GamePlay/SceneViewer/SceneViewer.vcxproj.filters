@@ -95,9 +95,6 @@
     <ClInclude Include="src\HSceneViewer.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\MayaHeader.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\MessageReader.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -109,6 +106,9 @@
     </ClInclude>
     <ClInclude Include="src\Mutex.h">
       <Filter>src\Circular Buffer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\MayaCallBackReader\MayaCallbackReader\MayaHeader.h">
+      <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
