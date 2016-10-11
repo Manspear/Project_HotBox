@@ -16,6 +16,9 @@
 #include <maya/MPointArray.h>
 #include <maya/MIntArray.h>
 #include <maya/MPoint.h>
+#include <maya/MFloatMatrix.h>
+#include <maya/MMatrix.h>
+#include <maya/MMatrixArray.h>
 #include <maya/MMatrix.h>
 #include <maya/MEulerRotation.h>
 #include <maya/MVector.h>

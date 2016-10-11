@@ -18,10 +18,10 @@ struct hMainHeader
 struct hMeshHeader
 {
     unsigned int meshNameLen;
-    char* meshName;
+    const char* meshName;
     unsigned int materialId;
     unsigned int prntTransNameLen;
-    char* prntTransName;
+    const char* prntTransName;
 
     unsigned int vertexCount;
 };
@@ -44,10 +44,9 @@ static std::vector<hMeshVertex> meshVertexList;
 
 struct hCameraHeader
 {
-    char cameraName[256];
+	const char* cameraName;
 
-    float nearPlane;
-    float farPlane;
+	float projMatrix[16];
 };
 
 static std::vector<hCameraHeader> cameraList;

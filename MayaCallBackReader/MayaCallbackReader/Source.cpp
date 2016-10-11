@@ -316,6 +316,48 @@ void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *cli
     MGlobal::displayInfo("I AM CHANGED!");
 }
 
+void cameraChanged(const MString &str, void* clientData)
+{
+	MStatus status = MStatus::kFailure;
+
+	M3dView cameraView = M3dView::active3dView();
+
+	MMatrix camProjMatrix;
+
+	cameraView.projectionMatrix(camProjMatrix);
+	
+	MDagPath cameraPath;
+
+	cameraView.getCamera(cameraPath);
+
+	MFnCamera camera(cameraPath.node());
+
+	MFloatMatrix mat = camera.projectionMatrix();
+
+	mat.matrix[2][2] -= mat.matrix[2][2];
+	mat.matrix[3][2] -= mat.matrix[3][2];
+
+	for (int row = 0; row < 4; row++)
+	{
+		for (int column = 0; column < 4; column++)
+		{
+			MGlobal::displayInfo(MString() + mat.matrix[row][column]);
+		}
+	}
+
+	hCameraHeader cameraObject;
+
+	MGlobal::displayInfo(camera.name());
+	cameraObject.cameraName = camera.name().asChar();
+
+	memcpy(&cameraObject.projMatrix, &mat, sizeof(float) * 16);
+
+	MGlobal::displayInfo("Camera changed...");
+
+	/*Make a message to send the camera in to the Circle Buffer.*/
+	//Call function here to send this message. 
+}
+
 void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -501,7 +543,7 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
         //fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
 		fMakeMeshMessage(updateMeshQueue.front(), true);
     }
-    MGlobal::displayInfo(MString("MeshQueue LENGTH: ") + updateMeshQueue.size());
+    //MGlobal::displayInfo(MString("MeshQueue LENGTH: ") + updateMeshQueue.size());
 }
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue)
@@ -671,9 +713,14 @@ EXPORT MStatus initializePlugin(MObject obj)
         ids.append(temp);
     }
 
+	temp = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), cameraChanged, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("cameraChanged success!");
+		ids.append(temp);
+	}
+
     fIterateScene();
-
-
 
     float oldTime = gClockTime;
     gClockticks = clock();
