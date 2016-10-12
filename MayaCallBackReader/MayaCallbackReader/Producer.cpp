@@ -53,5 +53,6 @@ void Producer::runProducer(circularBuffer& buffInst, char* msg, size_t packetSiz
 		//printf("%d %s\n", messageCount, msg);
 		messageCount++;
 	}
-	//delete[]msg;
+	
+	delete[]msg;
 }

@@ -66,8 +66,8 @@ public:
 	void getNewTransform(char* childName, float translation[3], float scale[3], float rotation[4]);
 
 	/*Functions for processing camera messages and getting the new camera.*/
-	void processCamera(char* messageData);
-	void getNewCamera(char* cameraName, float cameraMatrix[4][4]);
+	void processCamera(char* messageData, unsigned int cameraCount);
+	void getNewCamera(char* cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3]);
 
 private:
 

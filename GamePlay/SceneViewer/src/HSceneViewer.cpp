@@ -21,24 +21,106 @@ void HSceneViewer::initialize()
 	msgReader = new HMessageReader();
 
 	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	Node* cameraNode = Node::create();
-	_scene->addNode(cameraNode);
-	Camera* cam = cameraNode->getCamera();
-	cam = Camera::createPerspective(0, 0, 0, 0);
-	cameraNode->setCamera(cam);
-	_scene->setActiveCamera(cam);
-	cameraNode->setTranslation(Vector3(0, 0, -5));
-	cameraNode->release();
-	cam->release();
+	/*Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	Node* cameraNode = _scene->addNode("camera");
 
-	/*Initialize a default point light to give the scene light, later a light from Maya will be loaded.*/
-	Node* lightNode = Node::create("pointLight");
-	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
+	cameraNode->setCamera(camera);
+
+	_scene->setActiveCamera(camera);
+	camera->release();
+
+	cameraNode->translate(0, 1, 5);
+	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));*/
+
+
+	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
+	Light* light = Light::createDirectional(0.75f, 0.75f, 0.75f);
+	Node* lightNode = _scene->addNode("light");
+
 	lightNode->setLight(light);
-	lightNode->translate(Vector3(2.f, 2.f, 2.f));
-	_scene->addNode(lightNode);
-	lightNode->release();
+
 	light->release();
+
+	lightNode->rotateX(MATH_RAD_TO_DEG(-45, 0F));
+
+	float size = 1.0f;
+
+	float a = size * 0.5f;
+
+	float vertices[] =
+	{
+		-a, -a,  a,    0.0,  0.0,  1.0,   0.0, 0.0,
+		a, -a,  a,    0.0,  0.0,  1.0,   1.0, 0.0,
+		-a,  a,  a,    0.0,  0.0,  1.0,   0.0, 1.0,
+		a,  a,  a,    0.0,  0.0,  1.0,   1.0, 1.0,
+		-a,  a,  a,    0.0,  1.0,  0.0,   0.0, 0.0,
+		a,  a,  a,    0.0,  1.0,  0.0,   1.0, 0.0,
+		-a,  a, -a,    0.0,  1.0,  0.0,   0.0, 1.0,
+		a,  a, -a,    0.0,  1.0,  0.0,   1.0, 1.0,
+		-a,  a, -a,    0.0,  0.0, -1.0,   0.0, 0.0,
+		a,  a, -a,    0.0,  0.0, -1.0,   1.0, 0.0,
+		-a, -a, -a,    0.0,  0.0, -1.0,   0.0, 1.0,
+		a, -a, -a,    0.0,  0.0, -1.0,   1.0, 1.0,
+		-a, -a, -a,    0.0, -1.0,  0.0,   0.0, 0.0,
+		a, -a, -a,    0.0, -1.0,  0.0,   1.0, 0.0,
+		-a, -a,  a,    0.0, -1.0,  0.0,   0.0, 1.0,
+		a, -a,  a,    0.0, -1.0,  0.0,   1.0, 1.0,
+		a, -a,  a,    1.0,  0.0,  0.0,   0.0, 0.0,
+		a, -a, -a,    1.0,  0.0,  0.0,   1.0, 0.0,
+		a,  a,  a,    1.0,  0.0,  0.0,   0.0, 1.0,
+		a,  a, -a,    1.0,  0.0,  0.0,   1.0, 1.0,
+		-a, -a, -a,   -1.0,  0.0,  0.0,   0.0, 0.0,
+		-a, -a,  a,   -1.0,  0.0,  0.0,   1.0, 0.0,
+		-a,  a, -a,   -1.0,  0.0,  0.0,   0.0, 1.0,
+		-a,  a,  a,   -1.0,  0.0,  0.0,   1.0, 1.0
+	};
+
+	short indices[] =
+	{
+		0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 18, 17, 19, 20, 21, 22, 22, 21, 23
+	};
+
+	unsigned int vertexCount = 24;
+	unsigned int indexCount = 36;
+
+	VertexFormat::Element elements[] =
+	{
+		VertexFormat::Element(VertexFormat::POSITION, 3),
+		VertexFormat::Element(VertexFormat::NORMAL, 3),
+		VertexFormat::Element(VertexFormat::TEXCOORD0, 2)
+	};
+
+	Mesh* mesh = Mesh::createMesh(VertexFormat(elements, 3), vertexCount, false);
+
+	mesh->setVertexData(vertices, 0, vertexCount);
+
+	MeshPart* meshPart = mesh->addPart(Mesh::TRIANGLES, Mesh::INDEX16, indexCount, false);
+
+	meshPart->setIndexData(indices, 0, indexCount);
+
+	Model* cubeModel = Model::create(mesh);
+
+	mesh->release();
+
+	Material* material = cubeModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+
+	material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
+	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+
+	material->getParameter("u_ambientColor")->setValue(Vector3(0.2f, 0.2f, 0.2f));
+
+	material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
+	material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
+
+	Node* meshNode = Node::create("cube");
+
+	meshNode->translate(0.f, 0.f, 0.f);
+
+	meshNode->setDrawable(cubeModel);
+
+	_scene->addNode(meshNode);
+
+	cubeModel->release();
 }
 
 void HSceneViewer::finalize()
@@ -53,12 +135,14 @@ void HSceneViewer::update(float elapsedTime)
 
 	msgReader->read(msgReader->circBuff, enumList);
 
-	for (int enumIndex = 0; enumIndex < enumList.size(); enumIndex++)
+	for (HMessageReader::MessageType msgType : enumList)
 	{
-		switch (enumIndex)
+		switch (msgType)
 		{
 		case HMessageReader::eDefault:
 			printf("Hello! I am a default node.\n");
+
+			break;
 
 		case HMessageReader::eNewMesh:
 			/*Add new mesh to scene.*/
@@ -68,7 +152,7 @@ void HSceneViewer::update(float elapsedTime)
 
 		case HMessageReader::eVertexChanged:
 			/*Vertices changed in a mesh. Update the information.*/
-			modifyMesh();
+			//modifyMesh();
 
 			break;
 
@@ -115,8 +199,6 @@ void HSceneViewer::update(float elapsedTime)
 			break;
 		}
 	}
-
-
 }
 
 void HSceneViewer::render(float elapsedTime)
@@ -198,6 +280,17 @@ void HSceneViewer::addMesh()
 	/*Create a new model which we set as Drawable for the node.*/
 	Model* meshModel = Model::create(mesh);
 
+	SAFE_RELEASE(mesh);
+
+	Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+
+	material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
+	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+
+	meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
+
+	meshNode->setDrawable(meshModel);
+
 	/*Finally add this "MESHNODE" to the scene for rendering.*/
 	_scene->addNode(meshNode);
 }
@@ -208,6 +301,49 @@ void HSceneViewer::modifyMesh()
 
 void HSceneViewer::addCamera()
 {
+	char* camName = nullptr;
+	camName = new char[128];
+	float camProjMatrix[16];
+	float trans[3];
+	float rot[3];
+	float scale[3];
+
+	msgReader->getNewCamera(camName, camProjMatrix, trans, rot, scale);
+
+	bool isCameraNew = false;
+
+	Node* cameraNode = _scene->findNode(camName);
+
+	/*If the camera node don't exist in the scene, create a new node for it.*/
+	if (!cameraNode)
+	{
+		cameraNode = Node::create(camName);
+		_scene->addNode(cameraNode);
+		isCameraNew = true;
+	}
+
+	Camera* cam = cameraNode->getCamera();
+
+	/*If the camera do not exist under this node, create it.*/
+	if (!cam)
+	{
+		/*If the camera is ortographic, it will create one also with the createPerspective() func.*/
+		cam = Camera::createPerspective(0, 0, 0, 0);
+		cameraNode->setCamera(cam);
+	}
+
+	/*Set the projection matrix for the current active camera.*/
+	cam->setProjectionMatrix(camProjMatrix);
+
+	cameraNode->translate(trans);
+
+	cameraNode->rotateX(rot[0]);
+	cameraNode->rotateY(rot[1]);
+	cameraNode->rotateZ(rot[2]);
+
+	cameraNode->scale(scale);
+		
+	delete camName;
 }
 
 void HSceneViewer::modifyCamera()

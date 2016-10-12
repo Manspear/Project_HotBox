@@ -8,7 +8,6 @@
 #include "Mutex.h"
 
 #include <maya/MGlobal.h>
-//#include "MayaIncludes.h"
 
 class circularBuffer
 {

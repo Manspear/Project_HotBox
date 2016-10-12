@@ -13,6 +13,8 @@ public:
 
 	~HSceneViewer();
 
+	Scene* _scene;
+
 	void keyEvent(Keyboard::KeyEvent evt, int key);
 	
     void touchEvent(Touch::TouchEvent evt, int x, int y, unsigned int contactIndex);
@@ -64,7 +66,6 @@ private:
 
 	void removeNode();
 
-    Scene* _scene;
     bool _wireframe;
 };
 

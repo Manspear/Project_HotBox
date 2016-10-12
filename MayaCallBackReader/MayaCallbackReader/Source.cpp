@@ -13,7 +13,11 @@
 using namespace std;
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue);
+void fMakeCameraMessage();
+void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
+
+hCameraHeader gCam;
 
 float gClockTime;
 float gClockticks;
@@ -21,9 +25,7 @@ float gMeshUpdateTimer;
 float gDt30Fps;
 
 #define BUFFERSIZE 8<<20
-#define MAXMSGSIZE 2<<20
-//#define CHUNKSIZE 256
-
+#define MAXMSGSIZE 2<<2
 #define CHUNKSIZE 256
 
 struct sPoint
@@ -225,13 +227,25 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPl
                 MFnTransform fnTra(obj, &res);
                 if (res == MStatus::kSuccess)
                 {
-                    MTransformationMatrix transMat = fnTra.transformation();
+                    MTransformationMatrix transMat = fnTra.transformationMatrix();
+
                     MTransformationMatrix::RotationOrder rotOrder;
                     double rot[3];
                     double scale[3];
-                    MVector trans = transMat.getTranslation(MSpace::kWorld);
-                    transMat.getRotation(rot, rotOrder);
+					MVector trans = transMat.getTranslation(MSpace::kWorld);
+					double transDubbel[3]; 
+					trans.get(transDubbel);
+
+					transMat.getRotation(rot, rotOrder);
                     transMat.getScale(scale, MSpace::kObject);
+
+					/*The current active camera that is moving that we get transformation data from.*/
+					if (fnTra.child(0).hasFn(MFn::kCamera))
+					{
+						std::copy(transDubbel, transDubbel + 3, gCam.trans);
+						std::copy(rot, rot + 3, gCam.rot);
+						std::copy(scale, scale + 3, gCam.scale);
+					}
 
                     MFnAttribute fnAtt(plug.attribute(), &res);
                     if (res == MStatus::kSuccess)
@@ -316,8 +330,10 @@ void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *cli
     MGlobal::displayInfo("I AM CHANGED!");
 }
 
-void cameraChanged(const MString &str, void* clientData)
+void fCameraChanged(const MString &str, void* clientData)
 {
+	MStatus res;
+
 	MStatus status = MStatus::kFailure;
 
 	M3dView cameraView = M3dView::active3dView();
@@ -345,14 +361,16 @@ void cameraChanged(const MString &str, void* clientData)
 		}
 	}
 
-	hCameraHeader cameraObject;
-
 	MGlobal::displayInfo(camera.name());
-	cameraObject.cameraName = camera.name().asChar();
 
-	memcpy(&cameraObject.projMatrix, &mat, sizeof(float) * 16);
+	gCam.cameraName = camera.name().asChar();
+	gCam.cameraNameLength = camera.name().length();
+
+	memcpy(&gCam.projMatrix, &mat, sizeof(float) * 16);
 
 	MGlobal::displayInfo("Camera changed...");
+
+	fMakeCameraMessage();
 
 	/*Make a message to send the camera in to the Circle Buffer.*/
 	//Call function here to send this message. 
@@ -392,12 +410,11 @@ void fTransAddCbks(MObject& node, void* clientData)
     MCallbackId id;
     MFnTransform transFn(node, &res);
     if (res == MStatus::kSuccess)
-        id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, NULL, &res);
+        id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
     if (res == MStatus::kSuccess)
     {
         ids.append(id);
     }
- 
 }
 
 void fDagNodeAddCbks(MObject& node, void* clientData)
@@ -558,10 +575,11 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
     /*Have this function become awesome*/
     hMainHeader mainH;
-    mainH.meshCount = 1;
-    mainH.transformCount = 0;
 
-    mainH.cameraCount = 0;
+    mainH.meshCount = 1;
+
+    mainH.transformCount = 0;
+	mainH.cameraCount = 0;
     mainH.lightCount = 0;
     mainH.materialCount = 0;
 
@@ -591,7 +609,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     size_t meshVertexMem = sizeof(sBuiltVertex);
 
     int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + meshH.vertexCount * meshVertexMem;
-	//int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + 5 * sizeof(float);
+
     /*
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
     check if a message is "active", if it's unactive, i.e already read, the queued thing may memcpy into it.
@@ -603,13 +621,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
-	
-	/*Test memcpy*/
-	/*std::vector<float> floater;
-	for (int i = 0; i < 5; i++)
-		floater.push_back(5);
-
-	memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, floater.data(), sizeof(float) * 5);*/
 
     size_t bufferSize = BUFFERSIZE;
     size_t maxMsgSize = MAXMSGSIZE;
@@ -619,10 +630,43 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     int chunkSize = CHUNKSIZE;
     LPCWSTR varBuffName = TEXT("VarBuffer");
 
-    //Producer producer = Producer(delay, numMessages, maxMsgSize, totPackageSize, &bufferSize, chunkSize, varBuffName);
     Producer producer = Producer(1, chunkSize, varBuffName);
     producer.runProducer(gCb, (char*)msg, totPackageSize);
 }
+
+void fMakeCameraMessage()
+{
+	hMainHeader hMainHead;
+	size_t mainMem = sizeof(hMainHead);
+	size_t camMem = sizeof(hCameraHeader);
+
+	hMainHead.cameraCount = 1;
+
+	hMainHead.meshCount = 0;
+	hMainHead.lightCount = 0;
+	hMainHead.materialCount = 0;
+	hMainHead.transformCount = 0;
+
+	int totalSize = mainMem + camMem + gCam.cameraNameLength;
+
+	char* msg = new char[totalSize];
+
+	memcpy(msg, (void*)&hMainHead, mainMem);
+	memcpy(msg + mainMem, (void*)&gCam, camMem);
+	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength);
+
+	size_t bufferSize = BUFFERSIZE;
+	size_t maxMsgSize = MAXMSGSIZE;
+
+	int delay = 0;
+	int numMessages;
+	int chunkSize = CHUNKSIZE;
+	LPCWSTR varBuffName = TEXT("VarBuffer");
+
+	Producer producer = Producer(1, chunkSize, varBuffName);
+	producer.runProducer(gCb, (char*)msg, totalSize);
+}
+
 void fMakeTransformMessage(MObject obj)
 {
     MStatus res;
@@ -665,11 +709,6 @@ void fIterateScene()
             nodeIt.next();
         }
     }
-    //for (;!meshIt.isDone(); meshIt.next())
-    //{
-    //    MFnMesh myMeshFn(meshIt.currentItem());
-
-    //}
 }
 
 // called when the plugin is loaded
@@ -713,9 +752,10 @@ EXPORT MStatus initializePlugin(MObject obj)
         ids.append(temp);
     }
 
-	temp = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), cameraChanged, NULL, &res);
+	temp = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
+		/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
 		MGlobal::displayInfo("cameraChanged success!");
 		ids.append(temp);
 	}

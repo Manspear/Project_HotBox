@@ -20,6 +20,10 @@ HMessageReader::HMessageReader()
 
 HMessageReader::~HMessageReader()
 {
+	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
+	{
+
+	}
 }
 
 void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList)
@@ -44,6 +48,8 @@ void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::
 
 		messageCount++;
 	}
+
+	delete msg;
 }
 
 void HMessageReader::processMessage(char* messageData, HMessageReader::MessageType &msgType)
@@ -55,9 +61,8 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 	msgType = eDefault;
 
 	/*Read the main header to check what type of message to process.*/
-	//messageData + sizeof(hMainHeader);
-
 	hMainHeader mainHeader = *(hMainHeader*)messageData;
+
 	if (mainHeader.meshCount > 0)
 	{
 		for (int i = 0; i < mainHeader.meshCount; i++)
@@ -85,7 +90,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.cameraCount; i++)
 		{
 			/*Process cameradata.*/
-			processCamera(messageData);
+			processCamera(messageData, mainHeader.cameraCount);
 		}
 
 		msgType = eNewCamera;
@@ -112,6 +117,8 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 
 		msgType = eNewTransform;
 	}
+
+
 }
 
 struct sPoint
@@ -160,10 +167,10 @@ void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
 		/*These work*/
 		meshList[meshIndex].meshName = new char[meshHeader.meshNameLen + 1];
 		memcpy((void*)meshList[meshIndex].meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
-		meshList[meshIndex].meshName[meshHeader.meshNameLen] = '\0';
+		(char)meshList[meshIndex].meshName[meshHeader.meshNameLen] = '\0';
 		meshList[meshIndex].prntTransName = new char[meshHeader.prntTransNameLen + 1];
-		memcpy(meshList[meshIndex].prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
-		meshList[meshIndex].prntTransName = '\0';
+		memcpy((void*)meshList[meshIndex].prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
+		(char)meshList[meshIndex].prntTransName[meshHeader.prntTransNameLen] = '\0';
 
 		//meshList[meshIndex].meshName = meshName;
 		//meshList[meshIndex].prntTransName = transName;
@@ -181,7 +188,6 @@ void HMessageReader::getNewMesh(char * meshName, std::vector<hVertexHeader>& ver
 	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
 	{
 		memcpy(meshName, meshList[meshIndex].meshName, meshList[meshIndex].meshNameLen+1);
-		//meshName = meshList[meshIndex].meshName;
 
 		numVertices = meshList[meshIndex].vertexCount;
 
@@ -227,13 +233,42 @@ void HMessageReader::getNewTransform(char * childName, float translation[3], flo
 	/*Use the transformlist to get the data.*/
 }
 
-void HMessageReader::processCamera(char* messageData)
+void HMessageReader::processCamera(char* messageData, unsigned int cameraCount)
 {
-	/*Fill the cameralist for this process.*/
+	cameraList.resize(cameraCount);
+
+	for (int cameraIndex = 0; cameraIndex < cameraList.size(); cameraIndex++)
+	{
+		/*Read the hCameraHeader from messageData.*/
+		hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
+
+		cameraList[cameraIndex].cameraNameLength = cameraHeader.cameraNameLength;
+
+		memcpy(&cameraList[cameraIndex].projMatrix, &cameraHeader.projMatrix, sizeof(float) * 16);
+
+		memcpy(&cameraList[cameraIndex].trans, &cameraHeader.trans, sizeof(float) * 3);
+		memcpy(&cameraList[cameraIndex].rot, &cameraHeader.rot, sizeof(float) * 3);
+		memcpy(&cameraList[cameraIndex].scale, &cameraHeader.scale, sizeof(float) * 3);
+
+		cameraList[cameraIndex].cameraName = new char[cameraHeader.cameraNameLength + 1];
+		memcpy((void*)cameraList[cameraIndex].cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
+		(char)cameraList[cameraIndex].cameraName[cameraHeader.cameraNameLength] = '\0';
+	}
 }
 
-void HMessageReader::getNewCamera(char * cameraName, float cameraMatrix[4][4])
+void HMessageReader::getNewCamera(char * cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3])
 {
 	/*Use the cameralist to get the data.*/
+	for (int cameraIndex = 0; cameraIndex < cameraList.size(); cameraIndex++)
+	{
+		memcpy(cameraName, cameraList[cameraIndex].cameraName, cameraList[cameraIndex].cameraNameLength + 1);
+
+		memcpy(cameraProjMatrix, &cameraList[cameraIndex].projMatrix, sizeof(float) * 16);
+
+		memcpy(cameraTrans, &cameraList[cameraIndex].trans, sizeof(float) * 3);
+		memcpy(cameraRot, &cameraList[cameraIndex].rot, sizeof(float) * 3);
+		memcpy(cameraScale, &cameraList[cameraIndex].scale, sizeof(float) * 3);
+	}
 }
+
 
