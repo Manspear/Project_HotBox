@@ -13,11 +13,9 @@
 using namespace std;
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue);
-void fMakeCameraMessage();
+void fMakeCameraMessage(hCameraHeader& gCam);
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
-
-hCameraHeader gCam;
 
 float gClockTime;
 float gClockticks;
@@ -80,7 +78,8 @@ enum eNodeType
     mesh,
     transform,
     dagNode,
-    notHandled
+    notHandled,
+	camera
 };
 
 void* HelloWorld::creator() { 
@@ -255,25 +254,20 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPl
                     MTransformationMatrix::RotationOrder rotOrder;
                     double rot[3];
                     double scale[3];
-					MVector trans = transMat.getTranslation(MSpace::kWorld);
-					double transDubbel[3]; 
-					trans.get(transDubbel);
+					MVector tempTrans = transMat.getTranslation(MSpace::kObject);
+					double trans[3]; 
+					tempTrans.get(trans);
 
 					transMat.getRotation(rot, rotOrder);
                     transMat.getScale(scale, MSpace::kObject);
 
-					/*The current active camera that is moving that we get transformation data from.*/
-					if (fnTra.child(0).hasFn(MFn::kCamera))
-					{
-						std::copy(transDubbel, transDubbel + 3, gCam.trans);
-						std::copy(rot, rot + 3, gCam.rot);
-						std::copy(scale, scale + 3, gCam.scale);
-					}
-
                     MFnAttribute fnAtt(plug.attribute(), &res);
                     if (res == MStatus::kSuccess)
                     {
-                        MGlobal::displayInfo("Transform node: " + fnTra.name() + " Trans: " + trans.x + " " + trans.y + " " + trans.z + " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] + " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+                        MGlobal::displayInfo("Transform node: " + fnTra.name() 
+							+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
+							+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
+							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
                     }
                 }
             }
@@ -386,6 +380,8 @@ void fCameraChanged(const MString &str, void* clientData)
 
 	MGlobal::displayInfo(camera.name());
 
+	hCameraHeader gCam;
+
 	gCam.cameraName = camera.name().asChar();
 	gCam.cameraNameLength = camera.name().length();
 
@@ -393,7 +389,7 @@ void fCameraChanged(const MString &str, void* clientData)
 
 	MGlobal::displayInfo("Camera changed...");
 
-	fMakeCameraMessage();
+	fMakeCameraMessage(gCam);
 
 	/*Make a message to send the camera in to the Circle Buffer.*/
 	//Call function here to send this message. 
@@ -440,6 +436,23 @@ void fTransAddCbks(MObject& node, void* clientData)
     }
 }
 
+void fCameraAddCbks(MObject& node, void* clientData)
+{
+	MStatus res;
+	MCallbackId id;
+	MFnCamera camFn(node, &res);
+	if (res == MStatus::kSuccess)
+	{
+		id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
+		if (res == MStatus::kSuccess)
+		{
+			/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
+			MGlobal::displayInfo("cameraChanged success!");
+			ids.append(id);
+		}
+	}
+}
+
 void fDagNodeAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -469,6 +482,12 @@ void fOnNodeCreate(MObject& node, void *clientData)
     {
         nt = eNodeType::transform; MGlobal::displayInfo("TRANSFORM!");
     }
+
+	else if (node.hasFn(MFn::kCamera))
+	{
+		nt = eNodeType::camera; MGlobal::displayInfo("CAMERA!");
+	}
+
     else if (node.hasFn(MFn::kDagNode))
     {
         nt = eNodeType::dagNode; MGlobal::displayInfo("NODE!");
@@ -494,6 +513,13 @@ void fOnNodeCreate(MObject& node, void *clientData)
                 fTransAddCbks(node, clientData);
             break;
         }
+		case(eNodeType::camera):
+		{
+			MFnCamera camFn(node, &res);
+			if (res == MStatus::kSuccess)
+				fCameraAddCbks(node, clientData);
+			break;
+		}
         case(eNodeType::dagNode):
         {
             MFnDagNode dagFn(node, &res);
@@ -657,7 +683,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     producer.runProducer(gCb, (char*)msg, totPackageSize);
 }
 
-void fMakeCameraMessage()
+void fMakeCameraMessage(hCameraHeader& gCam)
 {
 	hMainHeader hMainHead;
 	size_t mainMem = sizeof(hMainHead);
@@ -774,14 +800,6 @@ EXPORT MStatus initializePlugin(MObject obj)
         MGlobal::displayInfo("timerFunc success!");
         ids.append(temp);
     }
-
-	temp = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-		/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
-		MGlobal::displayInfo("cameraChanged success!");
-		ids.append(temp);
-	}
 
     fIterateScene();
 

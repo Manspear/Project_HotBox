@@ -26,7 +26,7 @@ HMessageReader::~HMessageReader()
 	}
 }
 
-void HMessageReader::fRead(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList)
+void HMessageReader::fRead(circularBuffer& circBuff, MessageType& msgType)
 {
 	char* msg = new char[maxSize];
 
@@ -40,11 +40,7 @@ void HMessageReader::fRead(circularBuffer& circBuff, std::vector<HMessageReader:
 			Sleep(1);
 		}
 
-		HMessageReader::MessageType msgType;
-
 		fProcessMessage(msg, msgType);
-
-		enumList.push_back(msgType);
 
 		messageCount++;
 	}
@@ -246,17 +242,13 @@ void HMessageReader::fProcessCamera(char* messageData, unsigned int cameraCount)
 
 		memcpy(&cameraList[cameraIndex].projMatrix, &cameraHeader.projMatrix, sizeof(float) * 16);
 
-		memcpy(&cameraList[cameraIndex].trans, &cameraHeader.trans, sizeof(float) * 3);
-		memcpy(&cameraList[cameraIndex].rot, &cameraHeader.rot, sizeof(float) * 3);
-		memcpy(&cameraList[cameraIndex].scale, &cameraHeader.scale, sizeof(float) * 3);
-
 		cameraList[cameraIndex].cameraName = new char[cameraHeader.cameraNameLength + 1];
 		memcpy((void*)cameraList[cameraIndex].cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
 		(char)cameraList[cameraIndex].cameraName[cameraHeader.cameraNameLength] = '\0';
 	}
 }
 
-void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3])
+void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16])
 {
 	/*Use the cameralist to get the data.*/
 	for (int cameraIndex = 0; cameraIndex < cameraList.size(); cameraIndex++)
@@ -264,10 +256,6 @@ void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16]
 		memcpy(cameraName, cameraList[cameraIndex].cameraName, cameraList[cameraIndex].cameraNameLength + 1);
 
 		memcpy(cameraProjMatrix, &cameraList[cameraIndex].projMatrix, sizeof(float) * 16);
-
-		memcpy(cameraTrans, &cameraList[cameraIndex].trans, sizeof(float) * 3);
-		memcpy(cameraRot, &cameraList[cameraIndex].rot, sizeof(float) * 3);
-		memcpy(cameraScale, &cameraList[cameraIndex].scale, sizeof(float) * 3);
 	}
 }
 

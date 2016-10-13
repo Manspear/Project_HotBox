@@ -19,13 +19,13 @@ public:
 	
     void touchEvent(Touch::TouchEvent evt, int x, int y, unsigned int contactIndex);
 
-	std::vector<HMessageReader::MessageType> enumList;
-
 	HMessageReader* msgReader;
 
 	size_t bufferSize, maxSize;
 
 	int delayTime, numMessages, chunkSize;
+
+	Node* lightNode;
 
 protected:
 
@@ -38,8 +38,6 @@ protected:
     void render(float elapsedTime);
 
 private:
-
-	HMessageReader::MessageType msgType;
 
 	/*Draws the scene each frame.*/
     bool drawScene(Node* node);

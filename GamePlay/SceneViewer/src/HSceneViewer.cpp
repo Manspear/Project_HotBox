@@ -35,7 +35,7 @@ void HSceneViewer::initialize()
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Light* light = Light::createDirectional(0.75f, 0.75f, 0.75f);
-	Node* lightNode = _scene->addNode("light");
+	lightNode = _scene->addNode("light");
 
 	lightNode->setLight(light);
 
@@ -133,71 +133,68 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	HMessageReader::MessageType messageType;
 
-	msgReader->fRead(msgReader->circBuff, enumList);
+	msgReader->fRead(msgReader->circBuff, messageType);
 
-	for (HMessageReader::MessageType msgType : enumList)
+	switch (messageType)
 	{
-		switch (msgType)
-		{
-		case HMessageReader::eDefault:
-			printf("Hello! I am a default node.\n");
+	case HMessageReader::eDefault:
+		printf("Hello! I am a default node.\n");
 
-			break;
+		break;
 
-		case HMessageReader::eNewMesh:
-			/*Add new mesh to scene.*/
-			fAddMesh();
+	case HMessageReader::eNewMesh:
+		/*Add new mesh to scene.*/
+		fAddMesh();
 
-			break;
+		break;
 
-		case HMessageReader::eVertexChanged:
-			/*Vertices changed in a mesh. Update the information.*/
-			fModifyMesh();
+	case HMessageReader::eVertexChanged:
+		/*Vertices changed in a mesh. Update the information.*/
+		fModifyMesh();
 
-			break;
+		break;
 
-		case HMessageReader::eNewMaterial:
-			/*A new material to add for a mesh in scene.*/
-			fAddMaterial();
+	case HMessageReader::eNewMaterial:
+		/*A new material to add for a mesh in scene.*/
+		fAddMaterial();
 
-			break;
+		break;
 
-		case HMessageReader::eMaterialChanged:
-			/*A material is changed in a mesh. Update the information.*/
-			fModifyMaterial();
+	case HMessageReader::eMaterialChanged:
+		/*A material is changed in a mesh. Update the information.*/
+		fModifyMaterial();
 
-			break;
+		break;
 
-		case HMessageReader::eNewLight:
-			/*A new light to add in the scene.*/
-			fAddLight();
+	case HMessageReader::eNewLight:
+		/*A new light to add in the scene.*/
+		fAddLight();
 
-			break;
+		break;
 
-		case HMessageReader::eNewTransform:
-			/*A transform was added for any nodetype. Update the information.*/
-			fAddTransform();
+	case HMessageReader::eNewTransform:
+		/*A transform was added for any nodetype. Update the information.*/
+		fAddTransform();
 
-			break;
+		break;
 
-		case HMessageReader::eNewCamera:
-			/*A new camera to add in the scene.*/
-			fAddCamera();
+	case HMessageReader::eNewCamera:
+		/*A new camera to add in the scene.*/
+		fAddCamera();
 
-			break;
+		break;
 
-		case HMessageReader::eCameraChanged:
-			/*The camera is changed. Update the information.*/
-			fModifyCamera();
+	case HMessageReader::eCameraChanged:
+		/*The camera is changed. Update the information.*/
+		fModifyCamera();
 
-			break;
+		break;
 
-		case HMessageReader::eNodeRemoved:
-			/*A node is removed from the scene. Update the scene.*/
-			fRemoveNode();
+	case HMessageReader::eNodeRemoved:
+		/*A node is removed from the scene. Update the scene.*/
+		fRemoveNode();
 
-			break;
-		}
+		break;
 	}
 }
 
@@ -227,13 +224,15 @@ void HSceneViewer::fAddMesh()
 	std::vector<hVertexHeader> vertexList;
 	unsigned int numVertices = 0;
 	unsigned int* indexList = nullptr;
-	unsigned int numIndex = 36;
+	unsigned int numIndex = 0;
 	char* meshName = nullptr;
 	meshName = new char[128];
 	msgReader->fGetNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
 
-	indexList = new unsigned int[36];
-	for (int i = 0; i < 36; i++)
+	numIndex = numVertices;
+
+	indexList = new unsigned int[numVertices];
+	for (int i = 0; i < numVertices; i++)
 	{
 		indexList[i] = i;
 	}
@@ -244,55 +243,61 @@ void HSceneViewer::fAddMesh()
 	if (meshNode)
 	{
 		meshAlreadyExists = true;
-		_scene->removeNode(meshNode);
+
+		//_scene->removeNode(meshNode);
 	}
 
 	/*Create a new mesh node with the name of mesh.*/
 	else
 	{
 		meshNode = Node::create(meshName);
+
+		VertexFormat::Element elements[] = {
+			VertexFormat::Element(VertexFormat::POSITION, 3),
+			VertexFormat::Element(VertexFormat::TEXCOORD0, 2),
+			VertexFormat::Element(VertexFormat::NORMAL, 3),
+		};
+
+		const VertexFormat verticesFormat(elements, ARRAYSIZE(elements));
+
+		/*Assign the vertices data to the new mesh, using an index of some sort.*/
+
+		/*Create the mesh with the vertex format and number of vertices.*/
+		Mesh* mesh = Mesh::createMesh(verticesFormat, numVertices, false);
+
+		/*Set the vertex data for this mesh. HERE the vertex data should be used as argument.*/
+		mesh->setVertexData(&vertexList[0], 0);
+
+		/*How the mesh is to be constructed in the shader.*/
+		MeshPart* meshPart = mesh->addPart(Mesh::PrimitiveType::TRIANGLES, Mesh::IndexFormat::INDEX32, numIndex, false);
+
+		/*The index data for the mesh construction.*/
+		meshPart->setIndexData(indexList, 0, numIndex);
+
+		/*Create a new model which we set as Drawable for the node.*/
+		Model* meshModel = Model::create(mesh);
+
+		SAFE_RELEASE(mesh);
+
+		Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+
+		material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
+		material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+
+		material->getParameter("u_ambientColor")->setValue(Vector3(1.f, 1.f, 1.f));
+
+		material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
+		material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
+
+		meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
+
+		meshNode->setDrawable(meshModel);
+
+		/*Finally add this "MESHNODE" to the scene for rendering.*/
+		_scene->addNode(meshNode);
 	}
 
 	delete[] meshName;
-
-	VertexFormat::Element elements[] = {
-		VertexFormat::Element(VertexFormat::POSITION, 3),
-		VertexFormat::Element(VertexFormat::TEXCOORD0, 2),
-		VertexFormat::Element(VertexFormat::NORMAL, 3),
-	};
-
-	const VertexFormat verticesFormat(elements, ARRAYSIZE(elements));
-
-	/*Assign the vertices data to the new mesh, using an index of some sort.*/
-
-	/*Create the mesh with the vertex format and number of vertices.*/
-	Mesh* mesh = Mesh::createMesh(verticesFormat, numVertices, false);
-
-	/*Set the vertex data for this mesh. HERE the vertex data should be used as argument.*/
-	mesh->setVertexData(&vertexList[0], 0);
-
-	/*How the mesh is to be constructed in the shader.*/
-	MeshPart* meshPart = mesh->addPart(Mesh::PrimitiveType::TRIANGLES, Mesh::IndexFormat::INDEX32, numIndex, false);
-
-	/*The index data for the mesh construction.*/
-	meshPart->setIndexData(indexList, 0, numIndex);
-
-	/*Create a new model which we set as Drawable for the node.*/
-	Model* meshModel = Model::create(mesh);
-
-	SAFE_RELEASE(mesh);
-
-	Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
-
-	material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
-	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
-
-	meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
-
-	meshNode->setDrawable(meshModel);
-
-	/*Finally add this "MESHNODE" to the scene for rendering.*/
-	_scene->addNode(meshNode);
 }
 
 void HSceneViewer::fModifyMesh()
@@ -304,11 +309,8 @@ void HSceneViewer::fAddCamera()
 	char* camName = nullptr;
 	camName = new char[128];
 	float camProjMatrix[16];
-	float trans[3];
-	float rot[3];
-	float scale[3];
 
-	msgReader->fGetNewCamera(camName, camProjMatrix, trans, rot, scale);
+	msgReader->fGetNewCamera(camName, camProjMatrix);
 
 	bool isCameraNew = false;
 
@@ -329,20 +331,13 @@ void HSceneViewer::fAddCamera()
 	{
 		/*If the camera is ortographic, it will create one also with the createPerspective() func.*/
 		cam = Camera::createPerspective(0, 0, 0, 0);
+
 		cameraNode->setCamera(cam);
+
+		/*Set the projection matrix for the current active camera.*/
+		cam->setProjectionMatrix(camProjMatrix);
 	}
 
-	/*Set the projection matrix for the current active camera.*/
-	cam->setProjectionMatrix(camProjMatrix);
-
-	cameraNode->translate(trans);
-
-	cameraNode->rotateX(rot[0]);
-	cameraNode->rotateY(rot[1]);
-	cameraNode->rotateZ(rot[2]);
-
-	cameraNode->scale(scale);
-		
 	delete camName;
 }
 
