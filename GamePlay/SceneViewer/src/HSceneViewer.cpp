@@ -21,7 +21,7 @@ void HSceneViewer::initialize()
 	msgReader = new HMessageReader();
 
 	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	/*Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
 	Node* cameraNode = _scene->addNode("camera");
 
 	cameraNode->setCamera(camera);
@@ -30,8 +30,7 @@ void HSceneViewer::initialize()
 	camera->release();
 
 	cameraNode->translate(0, 1, 5);
-	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
-
+	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));*/
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Light* light = Light::createDirectional(0.75f, 0.75f, 0.75f);
@@ -43,7 +42,7 @@ void HSceneViewer::initialize()
 
 	lightNode->rotateX(MATH_RAD_TO_DEG(-45, 0F));
 
-	/*float size = 1.0f;
+	float size = 1.0f;
 
 	float a = size * 0.5f;
 
@@ -120,7 +119,7 @@ void HSceneViewer::initialize()
 
 	_scene->addNode(meshNode);
 
-	cubeModel->release();*/
+	cubeModel->release();
 }
 
 void HSceneViewer::finalize()
@@ -153,7 +152,7 @@ void HSceneViewer::update(float elapsedTime)
 
 	case HMessageReader::eNewMesh:
 		/*Add new mesh to scene.*/
-		fAddMesh();
+		//fAddMesh();
 
 		break;
 
@@ -310,7 +309,7 @@ void HSceneViewer::fAddMesh()
 		material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
 		material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
 
-		meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
+		meshNode->setTranslation(Vector3(0.f, 0.f, -3.f));
 
 		meshNode->setDrawable(meshModel);
 
@@ -404,14 +403,14 @@ void HSceneViewer::fAddCamera()
 	{
 		/*If the camera is ortographic, it will create one also with the createPerspective() func.*/
 		cam = Camera::createPerspective(0, 0, 0, 0);
-
 		cameraNode->setCamera(cam);
 
 		/*Set the projection matrix for the current active camera.*/
 		cam->setProjectionMatrix(camProjMatrix);
+
+		SAFE_RELEASE(cam);
 	}
 	
-
 	delete camName;
 }
 

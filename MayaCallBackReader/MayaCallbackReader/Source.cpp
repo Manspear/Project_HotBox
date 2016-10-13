@@ -396,10 +396,19 @@ void fLoadCamera(M3dView& activeView)
 
 	activeView.projectionMatrix(projMatrix);
 
-	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
-	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
+	projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+	projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
 
-	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
+	int matrixCounter = 0;
+
+	for (int rows = 0; rows < 4; rows++)
+	{
+		for (int columns = 0; columns < 4; columns++)
+		{
+			hCam.projMatrix[matrixCounter] = projMatrix.matrix[rows][columns];
+			matrixCounter++;
+		}
+	}
 	
 	MDagPath cameraPath;
 
@@ -430,7 +439,16 @@ void fCameraChanged(const MString &str, void* clientData)
 	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
 	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
 
-	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
+	int matrixCounter = 0;
+
+	for (int rows = 0; rows < 4; rows++)
+	{
+		for (int columns = 0; columns < 4; columns++)
+		{
+			hCam.projMatrix[matrixCounter] = projMatrix.matrix[rows][columns];
+			matrixCounter++;
+		}
+	}
 
 	MDagPath cameraPath;
 
