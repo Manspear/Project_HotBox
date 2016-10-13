@@ -347,54 +347,6 @@ void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *cli
     MGlobal::displayInfo("I AM CHANGED!");
 }
 
-void fCameraChanged(const MString &str, void* clientData)
-{
-	MStatus res;
-
-	MStatus status = MStatus::kFailure;
-
-	M3dView cameraView = M3dView::active3dView();
-
-	MMatrix camProjMatrix;
-
-	cameraView.projectionMatrix(camProjMatrix);
-	
-	MDagPath cameraPath;
-
-	cameraView.getCamera(cameraPath);
-
-	MFnCamera camera(cameraPath.node());
-
-	MFloatMatrix mat = camera.projectionMatrix();
-
-	mat.matrix[2][2] -= mat.matrix[2][2];
-	mat.matrix[3][2] -= mat.matrix[3][2];
-
-	for (int row = 0; row < 4; row++)
-	{
-		for (int column = 0; column < 4; column++)
-		{
-			MGlobal::displayInfo(MString() + mat.matrix[row][column]);
-		}
-	}
-
-	MGlobal::displayInfo(camera.name());
-
-	hCameraHeader gCam;
-
-	gCam.cameraName = camera.name().asChar();
-	gCam.cameraNameLength = camera.name().length();
-
-	memcpy(&gCam.projMatrix, &mat, sizeof(float) * 16);
-
-	MGlobal::displayInfo("Camera changed...");
-
-	fMakeCameraMessage(gCam);
-
-	/*Make a message to send the camera in to the Circle Buffer.*/
-	//Call function here to send this message. 
-}
-
 void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -412,28 +364,88 @@ void fMeshAddCbks(MObject& node, void* clientData)
         id = MPolyMessage::addPolyTopologyChangedCallback(node, fOnMeshTopoChange, NULL, &res);
         if (res == MStatus::kSuccess)
         {
-            ids.append(id);
-        }
-        bool arr[4]{ true, false, false, false };
-        id = MPolyMessage::addPolyComponentIdChangedCallback(node, arr, 4, fOnComponentChange, NULL, &res);
-        if (res == MStatus::kSuccess)
-        {
-            ids.append(id);
-        }
-    }
+			ids.append(id);
+		}
+		bool arr[4]{ true, false, false, false };
+		id = MPolyMessage::addPolyComponentIdChangedCallback(node, arr, 4, fOnComponentChange, NULL, &res);
+		if (res == MStatus::kSuccess)
+		{
+			ids.append(id);
+		}
+	}
 }
 
 void fTransAddCbks(MObject& node, void* clientData)
 {
-    MStatus res;
-    MCallbackId id;
-    MFnTransform transFn(node, &res);
-    if (res == MStatus::kSuccess)
-        id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
-    if (res == MStatus::kSuccess)
-    {
-        ids.append(id);
-    }
+	MStatus res;
+	MCallbackId id;
+	MFnTransform transFn(node, &res);
+	if (res == MStatus::kSuccess)
+		id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
+	if (res == MStatus::kSuccess)
+	{
+		ids.append(id);
+	}
+}
+
+void fLoadCamera(M3dView& activeView)
+{
+	hCameraHeader hCam;
+	MStatus res;
+	MMatrix projMatrix;
+
+	activeView.projectionMatrix(projMatrix);
+
+	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
+	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
+
+	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
+	
+	MDagPath cameraPath;
+
+	if(activeView.getCamera(cameraPath))
+	{
+		MFnCamera camFn(cameraPath.node(), &res);
+
+		if (res == MStatus::kSuccess)
+		{
+			hCam.cameraName = camFn.name().asChar();
+			hCam.cameraNameLength = camFn.name().length();
+		}
+	}
+
+	fMakeCameraMessage(hCam);
+}
+
+void fCameraChanged(const MString &str, void* clientData)
+{
+	hCameraHeader hCam;
+	MStatus res;
+	MMatrix projMatrix;
+
+	M3dView activeView = M3dView::active3dView();
+
+	activeView.projectionMatrix(projMatrix);
+
+	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
+	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
+
+	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
+
+	MDagPath cameraPath;
+
+	if (activeView.getCamera(cameraPath))
+	{
+		MFnCamera camFn(cameraPath.node(), &res);
+
+		if (res == MStatus::kSuccess)
+		{
+			hCam.cameraName = camFn.name().asChar();
+			hCam.cameraNameLength = camFn.name().length();
+		}
+	}
+
+	fMakeCameraMessage(hCam);
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -443,12 +455,21 @@ void fCameraAddCbks(MObject& node, void* clientData)
 	MFnCamera camFn(node, &res);
 	if (res == MStatus::kSuccess)
 	{
-		id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
+		M3dView activeCamView = M3dView::active3dView(&res);
+
 		if (res == MStatus::kSuccess)
 		{
-			/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
-			MGlobal::displayInfo("cameraChanged success!");
-			ids.append(id);
+			/*Load the active camera when plugin is initialized.*/
+			fLoadCamera(activeCamView);
+
+			/*Collect changes when active camera changes.*/
+			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
+			if (res == MStatus::kSuccess)
+			{
+				/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
+				MGlobal::displayInfo("cameraChanged success!");
+				ids.append(id);
+			}
 		}
 	}
 }
@@ -801,6 +822,8 @@ EXPORT MStatus initializePlugin(MObject obj)
         ids.append(temp);
     }
 
+	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
+
     fIterateScene();
 
     float oldTime = gClockTime;
@@ -809,8 +832,6 @@ EXPORT MStatus initializePlugin(MObject obj)
     float dt = gClockTime - oldTime;
 
     gMeshUpdateTimer = 0;
-
-    gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
 	return res;
 }
