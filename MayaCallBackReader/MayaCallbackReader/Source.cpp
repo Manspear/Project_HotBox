@@ -185,6 +185,11 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
     }
 }
 
+void fFindShader(MObject& obj)
+{
+
+}
+
 void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     /*Limit the number of "updates per second" of this function*/
@@ -194,7 +199,11 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &o
         {
             MStatus res;
             MObject temp = plug.node();
+
+			/*MDagPath path = MDagPath::getAPathTo(temp, &res);*/
+
             MFnMesh meshFn(temp, &res);
+
             if (res == MStatus::kSuccess)
             {
                 /*When a mesh point gets changed*/
@@ -206,6 +215,20 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &o
                         MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
                 }
                 updateMeshQueue.push(temp);
+
+				/*MObjectArray sets;
+				MObjectArray comps;
+				unsigned int instanceNumber = path.instanceNumber();*/
+
+				/*if (!meshFn.getConnectedSetsAndMembers(instanceNumber, sets, comps, true))
+				{
+					if (sets.length())
+					{
+						MObject set = sets[0];
+						MObject comp = comps[0];
+					}
+				}*/
+
             }
         }
         gMeshUpdateTimer = 0;

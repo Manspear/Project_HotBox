@@ -20,17 +20,17 @@ void HSceneViewer::initialize()
 
 	msgReader = new HMessageReader();
 
-	///*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	//Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
-	//Node* cameraNode = _scene->addNode("camera");
+	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
+	Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	Node* cameraNode = _scene->addNode("camera");
 
-	//cameraNode->setCamera(camera);
+	cameraNode->setCamera(camera);
 
-	//_scene->setActiveCamera(camera);
-	//camera->release();
+	_scene->setActiveCamera(camera);
+	camera->release();
 
-	//cameraNode->translate(0, 1, 5);
-	//cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
+	cameraNode->translate(0, 1, 5);
+	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
 
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
@@ -43,7 +43,7 @@ void HSceneViewer::initialize()
 
 	lightNode->rotateX(MATH_RAD_TO_DEG(-45, 0F));
 
-	float size = 1.0f;
+	/*float size = 1.0f;
 
 	float a = size * 0.5f;
 
@@ -120,7 +120,7 @@ void HSceneViewer::initialize()
 
 	_scene->addNode(meshNode);
 
-	cubeModel->release();
+	cubeModel->release();*/
 }
 
 void HSceneViewer::finalize()
@@ -146,13 +146,13 @@ void HSceneViewer::update(float elapsedTime)
 
 		case HMessageReader::eNewMesh:
 			/*Add new mesh to scene.*/
-			//addMesh();
+			fAddMesh();
 
 			break;
 
 		case HMessageReader::eVertexChanged:
 			/*Vertices changed in a mesh. Update the information.*/
-			//modifyMesh();
+			fModifyMesh();
 
 			break;
 
