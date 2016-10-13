@@ -45,7 +45,7 @@ public:
 	/*Different node types obtained from Maya plugin are retrieved here in these functions.*/
 	void fProcessMessage(char* messageData, MessageType& msgType);
 
-	void fRead(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList);
+	void fRead(circularBuffer& circBuff, MessageType& msgType);
 
 	/*Functions for processing mesh messages, getting the newly mesh data and also the updated vertices from the mesh.*/
 	void fProcessMesh(char* messageData, unsigned int meshCount);
@@ -67,7 +67,7 @@ public:
 
 	/*Functions for processing camera messages and getting the new camera.*/
 	void fProcessCamera(char* messageData, unsigned int cameraCount);
-	void fGetNewCamera(char* cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3]);
+	void fGetNewCamera(char* cameraName, float cameraProjMatrix[16]);
 
 	void fCameraChanged(char* cameraName);
 

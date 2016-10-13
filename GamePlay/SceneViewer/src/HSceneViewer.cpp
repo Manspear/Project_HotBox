@@ -35,7 +35,7 @@ void HSceneViewer::initialize()
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Light* light = Light::createDirectional(0.75f, 0.75f, 0.75f);
-	Node* lightNode = _scene->addNode("light");
+	lightNode = _scene->addNode("light");
 
 	lightNode->setLight(light);
 
@@ -142,71 +142,68 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	HMessageReader::MessageType messageType;
 
-	msgReader->fRead(msgReader->circBuff, enumList);
+	msgReader->fRead(msgReader->circBuff, messageType);
 
-	for (HMessageReader::MessageType msgType : enumList)
+	switch (messageType)
 	{
-		switch (msgType)
-		{
-		case HMessageReader::eDefault:
-			printf("Hello! I am a default node.\n");
+	case HMessageReader::eDefault:
+		printf("Hello! I am a default node.\n");
 
-			break;
+		break;
 
-		case HMessageReader::eNewMesh:
-			/*Add new mesh to scene.*/
-			fAddMesh();
+	case HMessageReader::eNewMesh:
+		/*Add new mesh to scene.*/
+		fAddMesh();
 
-			break;
+		break;
 
-		case HMessageReader::eVertexChanged:
-			/*Vertices changed in a mesh. Update the information.*/
-			fModifyMesh();
+	case HMessageReader::eVertexChanged:
+		/*Vertices changed in a mesh. Update the information.*/
+		fModifyMesh();
 
-			break;
+		break;
 
-		case HMessageReader::eNewMaterial:
-			/*A new material to add for a mesh in scene.*/
-			fAddMaterial();
+	case HMessageReader::eNewMaterial:
+		/*A new material to add for a mesh in scene.*/
+		fAddMaterial();
 
-			break;
+		break;
 
-		case HMessageReader::eMaterialChanged:
-			/*A material is changed in a mesh. Update the information.*/
-			fModifyMaterial();
+	case HMessageReader::eMaterialChanged:
+		/*A material is changed in a mesh. Update the information.*/
+		fModifyMaterial();
 
-			break;
+		break;
 
-		case HMessageReader::eNewLight:
-			/*A new light to add in the scene.*/
-			fAddLight();
+	case HMessageReader::eNewLight:
+		/*A new light to add in the scene.*/
+		fAddLight();
 
-			break;
+		break;
 
-		case HMessageReader::eNewTransform:
-			/*A transform was added for any nodetype. Update the information.*/
-			fAddTransform();
+	case HMessageReader::eNewTransform:
+		/*A transform was added for any nodetype. Update the information.*/
+		fAddTransform();
 
-			break;
+		break;
 
-		case HMessageReader::eNewCamera:
-			/*A new camera to add in the scene.*/
-			fAddCamera();
+	case HMessageReader::eNewCamera:
+		/*A new camera to add in the scene.*/
+		fAddCamera();
 
-			break;
+		break;
 
-		case HMessageReader::eCameraChanged:
-			/*The camera is changed. Update the information.*/
-			fModifyCamera();
+	case HMessageReader::eCameraChanged:
+		/*The camera is changed. Update the information.*/
+		fModifyCamera();
 
-			break;
+		break;
 
-		case HMessageReader::eNodeRemoved:
-			/*A node is removed from the scene. Update the scene.*/
-			fRemoveNode();
+	case HMessageReader::eNodeRemoved:
+		/*A node is removed from the scene. Update the scene.*/
+		fRemoveNode();
 
-			break;
-		}
+		break;
 	}
 }
 
@@ -267,7 +264,8 @@ void HSceneViewer::fAddMesh()
 	if (meshNode)
 	{
 		meshAlreadyExists = true;
-		_scene->removeNode(meshNode);
+
+		//_scene->removeNode(meshNode);
 	}
 
 	/*Create a new mesh node with the name of mesh.*/
@@ -306,6 +304,11 @@ void HSceneViewer::fAddMesh()
 
 		material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
 		material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+
+		material->getParameter("u_ambientColor")->setValue(Vector3(1.f, 1.f, 1.f));
+
+		material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
+		material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
 
 		meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
 
@@ -379,11 +382,8 @@ void HSceneViewer::fAddCamera()
 	char* camName = nullptr;
 	camName = new char[128];
 	float camProjMatrix[16];
-	float trans[3];
-	float rot[3];
-	float scale[3];
 
-	msgReader->fGetNewCamera(camName, camProjMatrix, trans, rot, scale);
+	msgReader->fGetNewCamera(camName, camProjMatrix);
 
 	bool isCameraNew = false;
 
@@ -404,18 +404,12 @@ void HSceneViewer::fAddCamera()
 	{
 		/*If the camera is ortographic, it will create one also with the createPerspective() func.*/
 		cam = Camera::createPerspective(0, 0, 0, 0);
+
 		cameraNode->setCamera(cam);
 
 		/*Set the projection matrix for the current active camera.*/
 		cam->setProjectionMatrix(camProjMatrix);
-
-		cameraNode->translate(trans);
-
-		cameraNode->rotateX(rot[0]);
-		cameraNode->rotateY(rot[1]);
-		cameraNode->rotateZ(rot[2]);
-
-		cameraNode->scale(scale);
+	}
 	}
 
 	delete camName;
