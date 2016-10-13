@@ -781,35 +781,20 @@ void fOnPointLightRemoved(MObject& node, void* clientData)
 	MGlobal::displayInfo(MString("pointLight got removed! ") + MString(node.apiTypeStr()));
 }
 
-// called when the plugin is loaded
-EXPORT MStatus initializePlugin(MObject obj)
+void addCallbacks()
 {
-	// most functions will use this variable to indicate for errors
-	MStatus res = MS::kSuccess;
-
-	MFnPlugin myPlugin(obj, "Maya plugin", "1.0", "Any", &res);
-	if (MFAIL(res)) {
-		CHECK_MSTATUS(res);
-	}
-	MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-    
-	MGlobal::displayInfo("Maya plugin loaded!");
-	// if res == kSuccess then the plugin has been loaded,
-	// otherwise it has not.
-   
+	MStatus res;
 	MCallbackId temp;
 	temp = MDGMessage::addNodeAddedCallback(fOnNodeCreate,
 		kDefaultNodeType,
 		NULL,
 		&res
 	);
-    if (res == MS::kSuccess)
-    {
-        MGlobal::displayInfo("nodeAdded success!");
-        ids.append(temp);
-    }
-	
+	if (res == MS::kSuccess)
+	{
+		MGlobal::displayInfo("nodeAdded success!");
+		ids.append(temp);
+	}
 	temp = MDGMessage::addNodeRemovedCallback(fOnNodeRemoved, kDefaultNodeType, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
@@ -840,19 +825,37 @@ EXPORT MStatus initializePlugin(MObject obj)
 		MGlobal::displayInfo("pointLightRemoved success!");
 		ids.append(temp);
 	}
+	temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("nameChange success!");
+		ids.append(temp);
+	}
+	temp = MTimerMessage::addTimerCallback(0.03, fOnElapsedTime, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("timerFunc success!");
+		ids.append(temp);
+	}
+}
+// called when the plugin is loaded
+EXPORT MStatus initializePlugin(MObject obj)
+{
+	// most functions will use this variable to indicate for errors
+	MStatus res = MS::kSuccess;
 
-    temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
-    if (res == MStatus::kSuccess)
-    {
-        MGlobal::displayInfo("nameChange success!");
-        ids.append(temp);
-    }
-    temp = MTimerMessage::addTimerCallback(0.03, fOnElapsedTime, NULL, &res);
-    if (res == MStatus::kSuccess)
-    {
-        MGlobal::displayInfo("timerFunc success!");
-        ids.append(temp);
-    }
+	MFnPlugin myPlugin(obj, "Maya plugin", "1.0", "Any", &res);
+	if (MFAIL(res)) {
+		CHECK_MSTATUS(res);
+	}
+	MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+    
+	MGlobal::displayInfo("Maya plugin loaded!");
+	// if res == kSuccess then the plugin has been loaded,
+	// otherwise it has not.
+	addCallbacks();
+
 
     float oldTime = gClockTime;
     gClockticks = clock();
