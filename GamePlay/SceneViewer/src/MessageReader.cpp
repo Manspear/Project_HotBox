@@ -52,7 +52,7 @@ void HMessageReader::fRead(circularBuffer& circBuff, std::vector<HMessageReader:
 	delete msg;
 }
 
-void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageType &msgType, bool& isDeleted)
+void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageType &msgType)
 {
 	/*Here the engine will act as a CONSUMER, to read the messages,
 	Should return the message type we want to use in the update() function.*/
@@ -141,7 +141,7 @@ struct sMeshVertices
 	std::vector<sBuiltVertex> vertices;
 };
 
-void HMessageReader::fProcessMesh(char* messageData, unsigned int meshCount, bool& isDeleted)
+void HMessageReader::fProcessMesh(char* messageData, unsigned int meshCount)
 {
 	meshList.resize(meshCount);
 	meshVertexList.resize(meshCount);
@@ -196,7 +196,7 @@ void HMessageReader::fGetVertexUpdate(char * meshName, void * updatedVertexList,
 {
 }
 
-void HMessageReader::fProcessMaterial(char* messageData, bool& isDeleted)
+void HMessageReader::fProcessMaterial(char* messageData)
 {
 	/*Fill the materiallist vector for this process.*/
 }
@@ -210,7 +210,7 @@ void HMessageReader::fGetChangedMaterial(char * meshName, char * materialName)
 {
 }
 
-void HMessageReader::fProcessLight(char* messageData, bool& isDeleted)
+void HMessageReader::fProcessLight(char* messageData)
 {
 	/*Fill the lightlist vector for this process.*/
 }
@@ -220,7 +220,7 @@ void HMessageReader::fGetNewLight(float color[3], float range)
 	/*Use the lightlist vector to get the data.*/
 }
 
-void HMessageReader::fProcessTransform(char* messageData, bool& isDeleted)
+void HMessageReader::fProcessTransform(char* messageData)
 {
 	/*Fill the transformlist vector for this process.*/
 }
@@ -230,7 +230,7 @@ void HMessageReader::fGetNewTransform(char * childName, float translation[3], fl
 	/*Use the transformlist to get the data.*/
 }
 
-void HMessageReader::fProcessCamera(char* messageData, unsigned int cameraCount, bool& isDeleted)
+void HMessageReader::fProcessCamera(char* messageData, unsigned int cameraCount)
 {
 	cameraList.resize(cameraCount);
 

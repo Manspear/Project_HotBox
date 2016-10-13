@@ -17,7 +17,6 @@ struct hMainHeader
 /*Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself*/
 struct hMeshHeader
 {
-	bool isDeleted;
     unsigned int meshNameLen;
     const char* meshName;
     unsigned int materialId;
@@ -45,8 +44,6 @@ static std::vector<hMeshVertex> meshVertexList;
 
 struct hCameraHeader
 {
-	bool isDeleted;
-
 	unsigned int cameraNameLength;
 	const char* cameraName;
 
@@ -61,8 +58,6 @@ static std::vector<hCameraHeader> cameraList;
 
 struct hTransformHeader
 {
-	bool isDeleted;
-
     unsigned int childNameLength;
     const char* childName;
 
@@ -75,8 +70,6 @@ static std::vector<hTransformHeader> transformList;
 
 struct hLightHeader
 {
-	bool isDeleted;
-
     char lightName[256];
 
     float intensity;
@@ -87,8 +80,6 @@ static std::vector<hLightHeader> lightList;
 
 struct hMaterialHeader
 {
-	bool isDeleted;
-
     char materialName[256];
 
     float reflectivity;
