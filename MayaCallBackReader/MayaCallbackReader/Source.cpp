@@ -802,7 +802,7 @@ void fOnPointLightRemoved(MObject& node, void* clientData)
 	MGlobal::displayInfo(MString("pointLight got removed! ") + MString(node.apiTypeStr()));
 }
 
-void addCallbacks()
+void fAddCallbacks()
 {
 	MStatus res;
 	MCallbackId temp;
@@ -875,7 +875,7 @@ EXPORT MStatus initializePlugin(MObject obj)
 	MGlobal::displayInfo("Maya plugin loaded!");
 	// if res == kSuccess then the plugin has been loaded,
 	// otherwise it has not.
-	addCallbacks();
+	fAddCallbacks();
 
 
 	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
