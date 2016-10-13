@@ -127,7 +127,16 @@ void HSceneViewer::finalize()
 {
     SAFE_RELEASE(_scene);
 }
+/*
+Through fRead we use fProcessNode, that in turn uses fProcessMesh, processLight etc
+In processMesh meshData is stored in the different vectors called meshVertices, mesh
 
+We need to be able to access any mesh, any vertexlist no matter where in the
+vector they are.
+For that we need to know:
+which node was changed --> get it's name
+what happened to that node --> have some bools
+*/
 void HSceneViewer::update(float elapsedTime)
 {
 	/*Get the information we send from the Maya plugin here.*/
@@ -217,8 +226,19 @@ bool HSceneViewer::drawScene(Node* node)
     return true;
 }
 
+
+
 void HSceneViewer::fAddMesh()
 {
+	/*
+	Debug functionality:
+
+	enter this function for any mesh-related change
+	check if the mesh already exists in the scene
+	if it already exists, modify that node without removing it
+	if it doesn't exist, add that node
+	*/
+
 	bool meshAlreadyExists = false;
 
 	std::vector<hVertexHeader> vertexList;
@@ -229,6 +249,7 @@ void HSceneViewer::fAddMesh()
 	meshName = new char[128];
 	msgReader->fGetNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
 
+	//TEMP DEBUG
 	numIndex = numVertices;
 
 	indexList = new unsigned int[numVertices];
@@ -302,6 +323,58 @@ void HSceneViewer::fAddMesh()
 
 void HSceneViewer::fModifyMesh()
 {
+	//std::vector<hVertexHeader> vertexList;
+	//unsigned int numVertices = 0;
+	//unsigned int* indexList = nullptr;
+	//unsigned int numIndex = 0;
+	//char* meshName = nullptr;
+	//meshName = new char[128];
+	//msgReader->fGetNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
+
+	////TEMP DEBUG
+	//numIndex = numVertices;
+
+	//indexList = new unsigned int[numVertices];
+	//for (int i = 0; i < numVertices; i++)
+	//{
+	//	indexList[i] = i;
+	//}
+
+	//Node* meshNode = _scene->findNode(meshName);
+
+	//VertexFormat::Element elements[] = {
+	//	VertexFormat::Element(VertexFormat::POSITION, 3),
+	//	VertexFormat::Element(VertexFormat::TEXCOORD0, 2),
+	//	VertexFormat::Element(VertexFormat::NORMAL, 3),
+	//};
+	//const VertexFormat verticesFormat(elements, ARRAYSIZE(elements));
+
+	//Mesh* mesh = Mesh::createMesh(verticesFormat, numVertices, false);
+
+	//mesh->setVertexData(&vertexList[0], 0);
+
+	//MeshPart* meshPart = mesh->addPart(Mesh::PrimitiveType::TRIANGLES, Mesh::IndexFormat::INDEX32, numIndex, false);
+
+	//meshPart->setIndexData(indexList, 0, numIndex);
+
+	//Model* meshModel = Model::create(mesh);
+
+	//SAFE_RELEASE(mesh);
+
+	//Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+
+	//material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
+	//material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+
+	//meshNode->setTranslation(Vector3(0.f, 0.f, -5.f));
+
+	//meshNode->setDrawable(meshModel);
+
+	///*Finally add this "MESHNODE" to the scene for rendering.*/
+	//_scene->addNode(meshNode);
+
+
+	//delete[] meshName;
 }
 
 void HSceneViewer::fAddCamera()
@@ -337,6 +410,7 @@ void HSceneViewer::fAddCamera()
 		/*Set the projection matrix for the current active camera.*/
 		cam->setProjectionMatrix(camProjMatrix);
 	}
+	
 
 	delete camName;
 }
@@ -367,6 +441,11 @@ void HSceneViewer::fModifyLight()
 
 void HSceneViewer::fRemoveNode()
 {
+	/*
+	Find the node name of the removed node.
+	Delete the node with the same name as the found name.
+	*/
+	
 }
 
 void HSceneViewer::keyEvent(Keyboard::KeyEvent evt, int key)

@@ -14,7 +14,7 @@ struct hMainHeader
     unsigned int lightCount;
     unsigned int materialCount;
 };
-
+/*Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself*/
 struct hMeshHeader
 {
     unsigned int meshNameLen;
@@ -25,7 +25,7 @@ struct hMeshHeader
 
     unsigned int vertexCount;
 };
-
+/*Meshes added in HMessageReader::processMesh()*/
 static std::vector<hMeshHeader> meshList;
 
 struct hVertexHeader
@@ -39,7 +39,7 @@ struct hMeshVertex
 {
     std::vector<hVertexHeader> vertexList;
 };
-
+/*Vertices added in HMessageReader::processMesh()*/
 static std::vector<hMeshVertex> meshVertexList;
 
 struct hCameraHeader

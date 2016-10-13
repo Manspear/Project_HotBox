@@ -575,7 +575,6 @@ void fOnNodeNameChange(MObject &node, const MString &str, void *clientData)
 
     MFnTransform transFn(node, &res);
     
-    node.hasFn(MFn::kTranslateManip);
     if (node.hasFn(MFn::kTranslateManip) || node.hasFn(MFn::kScaleManip) || node.hasFn(MFn::kRotateManip) ||
         node.hasFn(MFn::kUVManip2D) || node.hasFn(MFn::kFreePointManip) || node.hasFn(MFn::kScaleUVManip2D) ||
         node.hasFn(MFn::kPolyCaddyManip))
@@ -781,6 +780,28 @@ void fIterateScene()
     }
 }
 
+void fOnNodeRemoved(MObject& node, void* clientData)
+{
+	MGlobal::displayInfo(MString("I got removed! " + MString(node.apiTypeStr())));
+}
+
+void fOnMeshRemoved(MObject& node, void* clientData)
+{
+	MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
+}
+void fOnTransformRemoved(MObject& node, void* clientData)
+{
+	MGlobal::displayInfo(MString("Transform got removed! ") + MString(node.apiTypeStr()));
+}
+void fOnCameraRemoved(MObject& node, void* clientData)
+{
+	MGlobal::displayInfo(MString("Camera got removed! ") + MString(node.apiTypeStr()));
+}
+void fOnPointLightRemoved(MObject& node, void* clientData)
+{
+	MGlobal::displayInfo(MString("pointLight got removed! ") + MString(node.apiTypeStr()));
+}
+
 // called when the plugin is loaded
 EXPORT MStatus initializePlugin(MObject obj)
 {
@@ -809,6 +830,38 @@ EXPORT MStatus initializePlugin(MObject obj)
         MGlobal::displayInfo("nodeAdded success!");
         ids.append(temp);
     }
+	
+	temp = MDGMessage::addNodeRemovedCallback(fOnNodeRemoved, kDefaultNodeType, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("nodeRemoved success!");
+		ids.append(temp);
+	}
+	temp = MDGMessage::addNodeRemovedCallback(fOnMeshRemoved, "mesh", NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("meshRemoved success!");
+		ids.append(temp);
+	}
+	temp = MDGMessage::addNodeRemovedCallback(fOnTransformRemoved, "transform", NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("transformRemoved success!");
+		ids.append(temp);
+	}
+	temp = MDGMessage::addNodeRemovedCallback(fOnCameraRemoved, "camera", NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("cameraRemoved success!");
+		ids.append(temp);
+	}
+	temp = MDGMessage::addNodeRemovedCallback(fOnPointLightRemoved, "pointLight", NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("pointLightRemoved success!");
+		ids.append(temp);
+	}
+
     temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
     if (res == MStatus::kSuccess)
     {
@@ -824,8 +877,6 @@ EXPORT MStatus initializePlugin(MObject obj)
 
 	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
-    fIterateScene();
-
     float oldTime = gClockTime;
     gClockticks = clock();
     gClockTime = gClockticks / CLOCKS_PER_SEC;
@@ -833,6 +884,8 @@ EXPORT MStatus initializePlugin(MObject obj)
 
     gMeshUpdateTimer = 0;
 
+
+	fIterateScene();
 	return res;
 }
 

@@ -33,7 +33,7 @@ void HMessageReader::fRead(circularBuffer& circBuff, MessageType& msgType)
 	while (messageCount < numMessages)
 	{
 		size_t length;
-		Sleep(delayTime);
+		//Sleep(delayTime);
 
 		while (!circBuff.pop(msg, length))
 		{
@@ -110,11 +110,8 @@ void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageT
 			/*Process transformdata*/
 			fProcessTransform(messageData);
 		}
-
 		msgType = eNewTransform;
 	}
-
-
 }
 
 struct sPoint
