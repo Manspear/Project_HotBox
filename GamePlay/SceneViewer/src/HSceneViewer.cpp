@@ -20,17 +20,17 @@ void HSceneViewer::initialize()
 
 	msgReader = new HMessageReader();
 
-	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	/*Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
-	Node* cameraNode = _scene->addNode("camera");
+	///*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
+	//Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	//Node* cameraNode = _scene->addNode("camera");
 
-	cameraNode->setCamera(camera);
+	//cameraNode->setCamera(camera);
 
-	_scene->setActiveCamera(camera);
-	camera->release();
+	//_scene->setActiveCamera(camera);
+	//camera->release();
 
-	cameraNode->translate(0, 1, 5);
-	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));*/
+	//cameraNode->translate(0, 1, 5);
+	//cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
 
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
@@ -133,7 +133,7 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	HMessageReader::MessageType messageType;
 
-	msgReader->read(msgReader->circBuff, enumList);
+	msgReader->fRead(msgReader->circBuff, enumList);
 
 	for (HMessageReader::MessageType msgType : enumList)
 	{
@@ -146,7 +146,7 @@ void HSceneViewer::update(float elapsedTime)
 
 		case HMessageReader::eNewMesh:
 			/*Add new mesh to scene.*/
-			addMesh();
+			//addMesh();
 
 			break;
 
@@ -158,43 +158,43 @@ void HSceneViewer::update(float elapsedTime)
 
 		case HMessageReader::eNewMaterial:
 			/*A new material to add for a mesh in scene.*/
-			addMaterial();
+			fAddMaterial();
 
 			break;
 
 		case HMessageReader::eMaterialChanged:
 			/*A material is changed in a mesh. Update the information.*/
-			modifyMaterial();
+			fModifyMaterial();
 
 			break;
 
 		case HMessageReader::eNewLight:
 			/*A new light to add in the scene.*/
-			addLight();
+			fAddLight();
 
 			break;
 
 		case HMessageReader::eNewTransform:
 			/*A transform was added for any nodetype. Update the information.*/
-			addTransform();
+			fAddTransform();
 
 			break;
 
 		case HMessageReader::eNewCamera:
 			/*A new camera to add in the scene.*/
-			addCamera();
+			fAddCamera();
 
 			break;
 
 		case HMessageReader::eCameraChanged:
 			/*The camera is changed. Update the information.*/
-			modifyCamera();
+			fModifyCamera();
 
 			break;
 
 		case HMessageReader::eNodeRemoved:
 			/*A node is removed from the scene. Update the scene.*/
-			removeNode();
+			fRemoveNode();
 
 			break;
 		}
@@ -220,7 +220,7 @@ bool HSceneViewer::drawScene(Node* node)
     return true;
 }
 
-void HSceneViewer::addMesh()
+void HSceneViewer::fAddMesh()
 {
 	bool meshAlreadyExists = false;
 
@@ -230,7 +230,7 @@ void HSceneViewer::addMesh()
 	unsigned int numIndex = 36;
 	char* meshName = nullptr;
 	meshName = new char[128];
-	msgReader->getNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
+	msgReader->fGetNewMesh(meshName, vertexList, numVertices, indexList, numIndex);
 
 	indexList = new unsigned int[36];
 	for (int i = 0; i < 36; i++)
@@ -295,11 +295,11 @@ void HSceneViewer::addMesh()
 	_scene->addNode(meshNode);
 }
 
-void HSceneViewer::modifyMesh()
+void HSceneViewer::fModifyMesh()
 {
 }
 
-void HSceneViewer::addCamera()
+void HSceneViewer::fAddCamera()
 {
 	char* camName = nullptr;
 	camName = new char[128];
@@ -308,7 +308,7 @@ void HSceneViewer::addCamera()
 	float rot[3];
 	float scale[3];
 
-	msgReader->getNewCamera(camName, camProjMatrix, trans, rot, scale);
+	msgReader->fGetNewCamera(camName, camProjMatrix, trans, rot, scale);
 
 	bool isCameraNew = false;
 
@@ -346,31 +346,31 @@ void HSceneViewer::addCamera()
 	delete camName;
 }
 
-void HSceneViewer::modifyCamera()
+void HSceneViewer::fModifyCamera()
 {
 }
 
-void HSceneViewer::addMaterial()
+void HSceneViewer::fAddMaterial()
 {
 }
 
-void HSceneViewer::modifyMaterial()
+void HSceneViewer::fModifyMaterial()
 {
 }
 
-void HSceneViewer::addTransform()
+void HSceneViewer::fAddTransform()
 {
 }
 
-void HSceneViewer::addLight()
+void HSceneViewer::fAddLight()
 {
 }
 
-void HSceneViewer::modifyLight()
+void HSceneViewer::fModifyLight()
 {
 }
 
-void HSceneViewer::removeNode()
+void HSceneViewer::fRemoveNode()
 {
 }
 

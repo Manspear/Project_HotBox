@@ -26,7 +26,7 @@ HMessageReader::~HMessageReader()
 	}
 }
 
-void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList)
+void HMessageReader::fRead(circularBuffer& circBuff, std::vector<HMessageReader::MessageType>& enumList)
 {
 	char* msg = new char[maxSize];
 
@@ -42,7 +42,7 @@ void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::
 
 		HMessageReader::MessageType msgType;
 
-		processMessage(msg, msgType);
+		fProcessMessage(msg, msgType);
 
 		enumList.push_back(msgType);
 
@@ -52,7 +52,7 @@ void HMessageReader::read(circularBuffer& circBuff, std::vector<HMessageReader::
 	delete msg;
 }
 
-void HMessageReader::processMessage(char* messageData, HMessageReader::MessageType &msgType)
+void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageType &msgType)
 {
 	/*Here the engine will act as a CONSUMER, to read the messages,
 	Should return the message type we want to use in the update() function.*/
@@ -68,7 +68,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.meshCount; i++)
 		{
 			/*Process meshdata.*/
-			processMesh(messageData, mainHeader.meshCount);
+			fProcessMesh(messageData, mainHeader.meshCount);
 		}
 
 		msgType = eNewMesh;
@@ -79,7 +79,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.lightCount; i++)
 		{
 			/*Process lightdata.*/
-			processLight(messageData);
+			fProcessLight(messageData);
 		}
 
 		msgType = eNewLight;
@@ -90,7 +90,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.cameraCount; i++)
 		{
 			/*Process cameradata.*/
-			processCamera(messageData, mainHeader.cameraCount);
+			fProcessCamera(messageData, mainHeader.cameraCount);
 		}
 
 		msgType = eNewCamera;
@@ -101,7 +101,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.materialCount; i++)
 		{
 			/*Process materialdata.*/
-			processLight(messageData);
+			fProcessLight(messageData);
 		}
 
 		msgType = eNewMaterial;
@@ -112,7 +112,7 @@ void HMessageReader::processMessage(char* messageData, HMessageReader::MessageTy
 		for (int i = 0; i < mainHeader.transformCount; i++)
 		{
 			/*Process transformdata*/
-			processTransform(messageData);
+			fProcessTransform(messageData);
 		}
 
 		msgType = eNewTransform;
@@ -144,7 +144,7 @@ struct sMeshVertices
 	std::vector<sBuiltVertex> vertices;
 };
 
-void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
+void HMessageReader::fProcessMesh(char* messageData, unsigned int meshCount)
 {
 	meshList.resize(meshCount);
 	meshVertexList.resize(meshCount);
@@ -182,7 +182,7 @@ void HMessageReader::processMesh(char* messageData, unsigned int meshCount)
 	}
 }
 
-void HMessageReader::getNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
+void HMessageReader::fGetNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
 {
 	/*Use the meshlist vector to get the data and the vertex list data for each mesh.*/
 	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
@@ -195,45 +195,45 @@ void HMessageReader::getNewMesh(char * meshName, std::vector<hVertexHeader>& ver
 	}
 }
 
-void HMessageReader::getVertexUpdate(char * meshName, void * updatedVertexList, unsigned int * indexlist, unsigned int & numVerticesModified)
+void HMessageReader::fGetVertexUpdate(char * meshName, void * updatedVertexList, unsigned int * indexlist, unsigned int & numVerticesModified)
 {
 }
 
-void HMessageReader::processMaterial(char* messageData)
+void HMessageReader::fProcessMaterial(char* messageData)
 {
 	/*Fill the materiallist vector for this process.*/
 }
 
-void HMessageReader::getNewMaterial(char * materialName, char * texturePath, float ambient[3], float diffuse[3], float specular[3])
+void HMessageReader::fGetNewMaterial(char * materialName, char * texturePath, float ambient[3], float diffuse[3], float specular[3])
 {
 	/*Use the materiallist vector to get the data.*/
 }
 
-void HMessageReader::getChangedMaterial(char * meshName, char * materialName)
+void HMessageReader::fGetChangedMaterial(char * meshName, char * materialName)
 {
 }
 
-void HMessageReader::processLight(char* messageData)
+void HMessageReader::fProcessLight(char* messageData)
 {
 	/*Fill the lightlist vector for this process.*/
 }
 
-void HMessageReader::getNewLight(float color[3], float range)
+void HMessageReader::fGetNewLight(float color[3], float range)
 {
 	/*Use the lightlist vector to get the data.*/
 }
 
-void HMessageReader::processTransform(char* messageData)
+void HMessageReader::fProcessTransform(char* messageData)
 {
 	/*Fill the transformlist vector for this process.*/
 }
 
-void HMessageReader::getNewTransform(char * childName, float translation[3], float scale[3], float rotation[4])
+void HMessageReader::fGetNewTransform(char * childName, float translation[3], float scale[3], float rotation[4])
 {
 	/*Use the transformlist to get the data.*/
 }
 
-void HMessageReader::processCamera(char* messageData, unsigned int cameraCount)
+void HMessageReader::fProcessCamera(char* messageData, unsigned int cameraCount)
 {
 	cameraList.resize(cameraCount);
 
@@ -256,7 +256,7 @@ void HMessageReader::processCamera(char* messageData, unsigned int cameraCount)
 	}
 }
 
-void HMessageReader::getNewCamera(char * cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3])
+void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16], float cameraTrans[3], float cameraRot[3], float cameraScale[3])
 {
 	/*Use the cameralist to get the data.*/
 	for (int cameraIndex = 0; cameraIndex < cameraList.size(); cameraIndex++)
@@ -269,6 +269,10 @@ void HMessageReader::getNewCamera(char * cameraName, float cameraProjMatrix[16],
 		memcpy(cameraRot, &cameraList[cameraIndex].rot, sizeof(float) * 3);
 		memcpy(cameraScale, &cameraList[cameraIndex].scale, sizeof(float) * 3);
 	}
+}
+
+void HMessageReader::fCameraChanged(char * cameraName)
+{
 }
 
 

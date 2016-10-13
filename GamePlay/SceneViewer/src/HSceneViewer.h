@@ -23,15 +23,9 @@ public:
 
 	HMessageReader* msgReader;
 
-	size_t bufferSize;
+	size_t bufferSize, maxSize;
 
-	int delayTime;
-
-	int numMessages;
-
-	int chunkSize;
-
-	size_t maxSize;
+	int delayTime, numMessages, chunkSize;
 
 protected:
 
@@ -50,21 +44,21 @@ private:
 	/*Draws the scene each frame.*/
     bool drawScene(Node* node);
 
-	void addMesh();
-	void modifyMesh();
+	void fAddMesh();
+	void fModifyMesh();
 
-	void addCamera();
-	void modifyCamera();
+	void fAddCamera();
+	void fModifyCamera();
 
-	void addMaterial();
-	void modifyMaterial();
+	void fAddMaterial();
+	void fModifyMaterial();
 
-	void addTransform();
+	void fAddTransform();
 
-	void addLight();
-	void modifyLight();
+	void fAddLight();
+	void fModifyLight();
 
-	void removeNode();
+	void fRemoveNode();
 
     bool _wireframe;
 };
