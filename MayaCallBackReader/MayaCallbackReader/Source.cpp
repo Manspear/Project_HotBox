@@ -16,6 +16,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue);
 void fMakeCameraMessage(hCameraHeader& gCam);
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
+Producer producer;
 
 float gClockTime;
 float gClockticks;
@@ -23,8 +24,10 @@ float gMeshUpdateTimer;
 float gDt30Fps;
 
 #define BUFFERSIZE 8<<20
-#define MAXMSGSIZE 2<<2
+#define MAXMSGSIZE 2<<20
 #define CHUNKSIZE 256
+
+char* msg;
 
 struct sPoint
 {
@@ -71,16 +74,6 @@ MCallbackIdArray ids;
 std::queue<MObject> queueList;
 std::queue<MObject> updateMeshQueue;
 //std::vector<sMesh> meshList;
-
-/*e for enum*/
-enum eNodeType
-{
-    mesh,
-    transform,
-    dagNode,
-    notHandled,
-	camera
-};
 
 void* HelloWorld::creator() { 
 	return new HelloWorld;
@@ -701,23 +694,12 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
     check if a message is "active", if it's unactive, i.e already read, the queued thing may memcpy into it.
     */
-    char* msg = new char[totPackageSize];
-    
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
-    size_t bufferSize = BUFFERSIZE;
-    size_t maxMsgSize = MAXMSGSIZE;
-
-    int delay = 0;
-    int numMessages;
-    int chunkSize = CHUNKSIZE;
-    LPCWSTR varBuffName = TEXT("VarBuffer");
-
-    Producer producer = Producer(1, chunkSize, varBuffName);
     producer.runProducer(gCb, (char*)msg, totPackageSize);
 }
 
@@ -736,21 +718,10 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
 
-	char* msg = new char[totalSize];
-
 	memcpy(msg, (void*)&hMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&gCam, camMem);
 	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength);
 
-	size_t bufferSize = BUFFERSIZE;
-	size_t maxMsgSize = MAXMSGSIZE;
-
-	int delay = 0;
-	int numMessages;
-	int chunkSize = CHUNKSIZE;
-	LPCWSTR varBuffName = TEXT("VarBuffer");
-
-	Producer producer = Producer(1, chunkSize, varBuffName);
 	producer.runProducer(gCb, (char*)msg, totalSize);
 }
 
@@ -798,6 +769,63 @@ void fIterateScene()
     }
 }
 
+void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
+{
+	MStatus res;
+	hMainHeader mainH;
+	mainH.removedObjectCount = 1;
+	hRemovedObjectHeader roh;
+
+	if (nodeType == eNodeType::mesh)
+	{
+		MFnMesh mesh(node, &res);
+		if (res == MStatus::kSuccess)
+		{
+			roh.nodeType = eNodeType::mesh;
+			roh.nameLength = std::strlen(mesh.name().asChar());
+			memcpy(msg, &mainH, sizeof(hMainHeader));
+			memcpy(msg + sizeof(hMainHeader), mesh.name().asChar(), roh.nameLength);
+		}
+	}else
+	if (nodeType == eNodeType::transform)
+	{
+		MFnTransform trans(node, &res);
+		if (res == MStatus::kSuccess)
+		{
+			roh.nodeType = eNodeType::transform;
+			roh.nameLength = std::strlen(trans.name().asChar());
+			memcpy(msg, &mainH, sizeof(hMainHeader));
+			memcpy(msg + sizeof(hMainHeader), trans.name().asChar(), roh.nameLength);
+		}
+	}else
+	if (nodeType == eNodeType::camera)
+	{
+		MFnCamera cam(node, &res);
+		if (res == MStatus::kSuccess)
+		{
+			roh.nodeType = eNodeType::camera;
+			roh.nameLength = std::strlen(cam.name().asChar());
+			memcpy(msg, &mainH, sizeof(hMainHeader));
+			memcpy(msg + sizeof(hMainHeader), cam.name().asChar(), roh.nameLength);
+		}
+	}else
+	if (nodeType == eNodeType::pointLight)
+	{
+		MFnPointLight pl(node, &res);
+		if (res == MStatus::kSuccess)
+		{
+			roh.nodeType = eNodeType::pointLight;
+			roh.nameLength = std::strlen(pl.name().asChar());
+			memcpy(msg, &mainH, sizeof(hMainHeader));
+			memcpy(msg + sizeof(hMainHeader), pl.name().asChar(), roh.nameLength);
+		}
+	}
+	if (res == MStatus::kSuccess)
+	{
+		producer.runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
+	}
+}
+
 void fOnNodeRemoved(MObject& node, void* clientData)
 {
 	MGlobal::displayInfo(MString("I got removed! " + MString(node.apiTypeStr())));
@@ -806,6 +834,9 @@ void fOnNodeRemoved(MObject& node, void* clientData)
 void fOnMeshRemoved(MObject& node, void* clientData)
 {
 	MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
+
+	/*Make a meshRemoved message*/
+
 }
 void fOnTransformRemoved(MObject& node, void* clientData)
 {
@@ -820,35 +851,20 @@ void fOnPointLightRemoved(MObject& node, void* clientData)
 	MGlobal::displayInfo(MString("pointLight got removed! ") + MString(node.apiTypeStr()));
 }
 
-// called when the plugin is loaded
-EXPORT MStatus initializePlugin(MObject obj)
+void fAddCallbacks()
 {
-	// most functions will use this variable to indicate for errors
-	MStatus res = MS::kSuccess;
-
-	MFnPlugin myPlugin(obj, "Maya plugin", "1.0", "Any", &res);
-	if (MFAIL(res)) {
-		CHECK_MSTATUS(res);
-	}
-	MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-    
-	MGlobal::displayInfo("Maya plugin loaded!");
-	// if res == kSuccess then the plugin has been loaded,
-	// otherwise it has not.
-   
+	MStatus res;
 	MCallbackId temp;
 	temp = MDGMessage::addNodeAddedCallback(fOnNodeCreate,
 		kDefaultNodeType,
 		NULL,
 		&res
 	);
-    if (res == MS::kSuccess)
-    {
-        MGlobal::displayInfo("nodeAdded success!");
-        ids.append(temp);
-    }
-	
+	if (res == MS::kSuccess)
+	{
+		MGlobal::displayInfo("nodeAdded success!");
+		ids.append(temp);
+	}
 	temp = MDGMessage::addNodeRemovedCallback(fOnNodeRemoved, kDefaultNodeType, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
@@ -879,19 +895,37 @@ EXPORT MStatus initializePlugin(MObject obj)
 		MGlobal::displayInfo("pointLightRemoved success!");
 		ids.append(temp);
 	}
+	temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("nameChange success!");
+		ids.append(temp);
+	}
+	temp = MTimerMessage::addTimerCallback(0.03, fOnElapsedTime, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MGlobal::displayInfo("timerFunc success!");
+		ids.append(temp);
+	}
+}
+// called when the plugin is loaded
+EXPORT MStatus initializePlugin(MObject obj)
+{
+	// most functions will use this variable to indicate for errors
+	MStatus res = MS::kSuccess;
 
-    temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
-    if (res == MStatus::kSuccess)
-    {
-        MGlobal::displayInfo("nameChange success!");
-        ids.append(temp);
-    }
-    temp = MTimerMessage::addTimerCallback(0.03, fOnElapsedTime, NULL, &res);
-    if (res == MStatus::kSuccess)
-    {
-        MGlobal::displayInfo("timerFunc success!");
-        ids.append(temp);
-    }
+	MFnPlugin myPlugin(obj, "Maya plugin", "1.0", "Any", &res);
+	if (MFAIL(res)) {
+		CHECK_MSTATUS(res);
+	}
+	MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
+	CHECK_MSTATUS_AND_RETURN_IT(status);
+    
+	MGlobal::displayInfo("Maya plugin loaded!");
+	// if res == kSuccess then the plugin has been loaded,
+	// otherwise it has not.
+	fAddCallbacks();
+
 
 	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
@@ -902,6 +936,11 @@ EXPORT MStatus initializePlugin(MObject obj)
 
     gMeshUpdateTimer = 0;
 
+	msg = new char[MAXMSGSIZE];
+
+	int chunkSize = CHUNKSIZE;
+	LPCWSTR varBuffName = TEXT("VarBuffer");
+	producer = Producer(1, chunkSize, varBuffName);
 
 	fIterateScene();
 	return res;
@@ -922,6 +961,8 @@ EXPORT MStatus uninitializePlugin(MObject obj)
 	MStatus status = plugin.deregisterCommand("helloWorld");
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MGlobal::displayInfo("Maya plugin unloaded!");
+
+	delete[] msg;
 
 	return MS::kSuccess;
 }

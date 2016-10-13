@@ -4,17 +4,39 @@
 
 #include <vector>
 
-/*Put the headers here.*/
+/*e for enum*/
+enum eNodeType
+{
+	mesh,
+	transform,
+	dagNode,
+	pointLight,
+	camera,
+	notHandled
+};
 
+/*Put the headers here.*/
+/*By default the values are zeroed*/
 struct hMainHeader
 {
-    unsigned int meshCount;
-    unsigned int cameraCount;
-    unsigned int transformCount;
-    unsigned int lightCount;
-    unsigned int materialCount;
+	unsigned int removedObjectCount = 0;
+    unsigned int meshCount = 0;
+    unsigned int cameraCount = 0;
+    unsigned int transformCount = 0;
+    unsigned int lightCount = 0;
+    unsigned int materialCount = 0;
 };
-/*Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself*/
+/*Contains the name, and type of the removed object*/
+struct hRemovedObjectHeader
+{
+	unsigned int nodeType;
+	unsigned int nameLength;
+};
+
+/*
+Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself
+  
+*/
 struct hMeshHeader
 {
     unsigned int meshNameLen;
