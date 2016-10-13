@@ -410,7 +410,7 @@ void HSceneViewer::fAddCamera()
 		/*Set the projection matrix for the current active camera.*/
 		cam->setProjectionMatrix(camProjMatrix);
 	}
-	}
+	
 
 	delete camName;
 }
