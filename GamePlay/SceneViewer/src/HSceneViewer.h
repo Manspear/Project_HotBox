@@ -25,6 +25,8 @@ public:
 
 	int delayTime, numMessages, chunkSize;
 
+	Node* lightNode;
+
 protected:
 
     void initialize();
