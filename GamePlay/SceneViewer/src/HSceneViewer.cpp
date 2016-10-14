@@ -113,7 +113,7 @@ void HSceneViewer::initialize()
 
 	Node* meshNode = Node::create("cube");
 
-	meshNode->translate(0.f, 0.f, 0.f);
+	meshNode->translate(0.f, 0.f, -7.f);
 
 	meshNode->setDrawable(cubeModel);
 
@@ -403,12 +403,18 @@ void HSceneViewer::fAddCamera()
 	{
 		/*If the camera is ortographic, it will create one also with the createPerspective() func.*/
 		cam = Camera::createPerspective(0, 0, 0, 0);
+
 		cameraNode->setCamera(cam);
+
+		_scene->setActiveCamera(cam);
 
 		/*Set the projection matrix for the current active camera.*/
 		cam->setProjectionMatrix(camProjMatrix);
 
 		SAFE_RELEASE(cam);
+
+		cameraNode->translate(0, 1, 5);
+		cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
 	}
 	
 	delete camName;
