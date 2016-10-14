@@ -35,31 +35,34 @@ void HMessageReader::fRead(circularBuffer& circBuff, MessageType& msgType)
 		size_t length;
 		//Sleep(delayTime);
 
+		//memcpy from the buffer into msg
 		while (!circBuff.pop(msg, length))
 		{
 			Sleep(1);
 		}
-
+		/*
+		memcpy from the msg memcpied from the buffer into another message... Sounds redundant.
+		look into it in the future
+		*/
 		fProcessMessage(msg, msgType);
 
 		messageCount++;
 	}
 
-	delete msg;
+	delete[] msg;
 }
 
-void HMessageReader::fProcessDeletedObject(char * messageData, unsigned int deletedObjectCount)
+void HMessageReader::fProcessDeletedObject(char * messageData)
 {
 	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)messageData + sizeof(hMainHeader);
-	remoh->nameLength;
-	remoh->nodeType;
-	remoh->name;
 
 	hRemovedObjectHeader temp;
 	temp.nodeType = remoh->nodeType;
-	temp.name = new char[remoh->nameLength];
+	temp.name = new char[remoh->nameLength + 1];
 	memcpy((char*)temp.name, remoh + sizeof(hRemovedObjectHeader), temp.nameLength);
-	//removedList.push_back();
+	(char)temp.name[remoh->nameLength] = '\0';
+
+	removedList.push_back(temp);
 }
 
 void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageType &msgType)
@@ -78,7 +81,7 @@ void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageT
 		for (int i = 0; i < mainHeader.removedObjectCount; i++)
 		{
 			/*Process deleted object*/
-			
+			fProcessDeletedObject(messageData);
 		}
 	}
 
@@ -87,7 +90,7 @@ void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageT
 		for (int i = 0; i < mainHeader.meshCount; i++)
 		{
 			/*Process meshdata.*/
-			fProcessMesh(messageData, mainHeader.meshCount);
+			fProcessMesh(messageData);
 		}
 
 		msgType = eNewMesh;
@@ -109,7 +112,7 @@ void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageT
 		for (int i = 0; i < mainHeader.cameraCount; i++)
 		{
 			/*Process cameradata.*/
-			fProcessCamera(messageData, mainHeader.cameraCount);
+			fProcessCamera(messageData);
 		}
 
 		msgType = eNewCamera;
@@ -160,55 +163,45 @@ struct sMeshVertices
 	std::vector<sBuiltVertex> vertices;
 };
 
-void HMessageReader::fProcessMesh(char* messageData, unsigned int meshCount)
+void HMessageReader::fProcessMesh(char* messageData)
 {
-	meshList.resize(meshCount);
-	meshVertexList.resize(meshCount);
-
-	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
-	{
-		/*Read the meshHeader from messageData.*/
-		hMeshHeader meshHeader = *(hMeshHeader*)(messageData + sizeof(hMainHeader));
+	/*Read the meshHeader from messageData.*/
+	hMeshHeader meshHeader = *(hMeshHeader*)(messageData + sizeof(hMainHeader));
 	
-		/*From the messageData, obtain the data from the hMeshHeader.*/
-		meshList[meshIndex].meshNameLen = meshHeader.meshNameLen;
-		meshList[meshIndex].materialId = meshHeader.materialId;
-		meshList[meshIndex].meshNameLen = meshHeader.meshNameLen;
 
-		meshList[meshIndex].vertexCount = meshHeader.vertexCount;
 
-		/*Resize the vertex list for each mesh with vertex count of each mesh.*/
-		meshVertexList[meshIndex].vertexList.resize(meshHeader.vertexCount);
-
-		/*These work*/
-		meshList[meshIndex].meshName = new char[meshHeader.meshNameLen + 1];
-		memcpy((void*)meshList[meshIndex].meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
-		(char)meshList[meshIndex].meshName[meshHeader.meshNameLen] = '\0';
-		meshList[meshIndex].prntTransName = new char[meshHeader.prntTransNameLen + 1];
-		memcpy((void*)meshList[meshIndex].prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
-		(char)meshList[meshIndex].prntTransName[meshHeader.prntTransNameLen] = '\0';
-
-		//meshList[meshIndex].meshName = meshName;
-		//meshList[meshIndex].prntTransName = transName;
-		
-		std::vector<sBuiltVertex> meshVertices;
-		memcpy(&meshVertexList[meshIndex].vertexList.front(), messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen, meshHeader.vertexCount * sizeof(sBuiltVertex));
+	meshList.push_back(meshHeader);
 	
-		meshVertexList[meshIndex].vertexList;
-	}
+	/*Resize the vertex list for each mesh with vertex count of each mesh.*/
+	//meshVertexList[meshIndex].vertexList.resize(meshHeader.vertexCount);
+	hMeshVertex tempList;
+	meshVertexList.push_back(tempList);
+
+	/*These work*/
+	meshList.back().meshName = new char[meshHeader.meshNameLen + 1];
+	memcpy((void*)meshList.back().meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
+	(char)meshList.back().meshName[meshHeader.meshNameLen] = '\0';
+	meshList.back().prntTransName = new char[meshHeader.prntTransNameLen + 1];
+	memcpy((void*)meshList.back().prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
+	(char)meshList.back().prntTransName[meshHeader.prntTransNameLen] = '\0';
+	
+	//meshList[meshIndex].meshName = meshName;
+	//meshList[meshIndex].prntTransName = transName;
+	
+	std::vector<sBuiltVertex> meshVertices;
+	memcpy(&meshVertexList.back().vertexList.front(), messageData + sizeof(hMainHeader) + 
+		   sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen, 
+		   meshHeader.vertexCount * sizeof(sBuiltVertex));
 }
 
 void HMessageReader::fGetNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices)
 {
 	/*Use the meshlist vector to get the data and the vertex list data for each mesh.*/
-	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
-	{
-		memcpy(meshName, meshList[meshIndex].meshName, meshList[meshIndex].meshNameLen+1);
+	memcpy(meshName, meshList.back().meshName, meshList.back().meshNameLen+1);
 
-		numVertices = meshList[meshIndex].vertexCount;
+	numVertices = meshList.back().vertexCount;
 
-		vertexList = meshVertexList[meshIndex].vertexList;
-	}
+	vertexList = meshVertexList.back().vertexList;
 }
 
 void HMessageReader::fGetVertexUpdate(char * meshName, void * updatedVertexList, unsigned int * indexlist, unsigned int & numVerticesModified)
@@ -249,23 +242,21 @@ void HMessageReader::fGetNewTransform(char * childName, float translation[3], fl
 	/*Use the transformlist to get the data.*/
 }
 
-void HMessageReader::fProcessCamera(char* messageData, unsigned int cameraCount)
+void HMessageReader::fProcessCamera(char* messageData)
 {
-	cameraList.resize(cameraCount);
 
-	for (int cameraIndex = 0; cameraIndex < cameraList.size(); cameraIndex++)
-	{
-		/*Read the hCameraHeader from messageData.*/
-		hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
+	/*Read the hCameraHeader from messageData.*/
+	hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
 
-		cameraList[cameraIndex].cameraNameLength = cameraHeader.cameraNameLength;
+	cameraList.push_back(cameraHeader);
 
-		memcpy(&cameraList[cameraIndex].projMatrix, &cameraHeader.projMatrix, sizeof(float) * 16);
+	cameraList.back().cameraNameLength = cameraHeader.cameraNameLength;
+	/*Maybe unimportant*/
+	//memcpy(&cameraList.back().projMatrix, &cameraHeader.projMatrix, sizeof(float) * 16);
 
-		cameraList[cameraIndex].cameraName = new char[cameraHeader.cameraNameLength + 1];
-		memcpy((void*)cameraList[cameraIndex].cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
-		(char)cameraList[cameraIndex].cameraName[cameraHeader.cameraNameLength] = '\0';
-	}
+	cameraList.back().cameraName = new char[cameraHeader.cameraNameLength + 1];
+	memcpy((void*)cameraList.back().cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
+	(char)cameraList.back().cameraName[cameraHeader.cameraNameLength] = '\0';
 }
 
 void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16])
@@ -281,6 +272,23 @@ void HMessageReader::fGetNewCamera(char * cameraName, float cameraProjMatrix[16]
 
 void HMessageReader::fCameraChanged(char * cameraName)
 {
+
+}
+
+HMessageReader::sFoundInfo HMessageReader::fFindMesh(const char* mName)
+{
+	sFoundInfo fi;
+	for (int i = 0; i < meshList.size(); i++)
+	{
+		if (std::strcmp(meshList[i].meshName, mName) == 0)
+		{
+			fi.index = i;
+			fi.msgType = MessageType::eMeshChanged;
+			return fi;
+		}
+	}
+	fi.msgType = MessageType::eNewMesh;
+	return fi;
 }
 
 
