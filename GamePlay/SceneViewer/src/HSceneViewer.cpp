@@ -18,10 +18,11 @@ void HSceneViewer::initialize()
 	/*By default create an empty scene, fill with the nodes we send from Maya.*/
 	_scene = Scene::create();
 
-	msgReader = new HMessageReader();
+	//msgReader = new HMessageReader();
 
 	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	/*Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	
 	Node* cameraNode = _scene->addNode("camera");
 
 	cameraNode->setCamera(camera);
@@ -30,17 +31,22 @@ void HSceneViewer::initialize()
 	camera->release();
 
 	cameraNode->translate(0, 1, 5);
-	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));*/
+	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
-	Light* light = Light::createDirectional(0.75f, 0.75f, 0.75f);
-	lightNode = _scene->addNode("light");
+	Light* light = Light::createPoint(Vector3(30.5f, 0.5f, 0.5f), 20);
 
-	lightNode->setLight(light);
+	Node* lightbla = Node::create("lightNode");
+
+	lightbla->setLight(light);
+
+	lightbla->translate(Vector3(0, 0, 0));
+
+	_scene->addNode(lightbla);
+
+	lightbla->release();
 
 	light->release();
-
-	lightNode->rotateX(MATH_RAD_TO_DEG(-45, 0F));
 
 	float size = 1.0f;
 
@@ -101,19 +107,33 @@ void HSceneViewer::initialize()
 
 	mesh->release();
 
-	Material* material = cubeModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+	Material* material = Material::create("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 
-	material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
-	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+	RenderState::StateBlock* block = RenderState::StateBlock::create();
+	block->setCullFace(true);
+	block->setDepthTest(true);
+	material->setStateBlock(block);
 
-	material->getParameter("u_ambientColor")->setValue(Vector3(0.2f, 0.2f, 0.2f));
+	material->setParameterAutoBinding("u_worldViewMatrix", RenderState::AutoBinding::WORLD_VIEW_MATRIX);
+	material->setParameterAutoBinding("u_worldViewProjectionMatrix", RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
+	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-	material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
-	material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
+	Node* lightNode = _scene->findNode("lightNode");
 
-	Node* meshNode = Node::create("cube");
+	material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &Light::getColor);
+	material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &Light::getRangeInverse);
+	material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &Node::getTranslationView);
 
-	meshNode->translate(0.f, 0.f, -7.f);
+	material->getParameter("u_ambientColor")->setValue(Vector3(1.0f, 1.0f, 1.0f));
+
+	/*The input to the fragment shader have a vec4, and that's why it crashed.. when passing a Vector4.*/
+	material->getParameter("u_diffuseColor")->setValue(Vector4(0.5f, 0.5f, 0.5f, 0.0f));
+
+	Node* meshNode = Node::create("meshNode");
+
+	meshNode->translate(0.f, 0.f, -2.f);
+
+	cubeModel->setMaterial(material);
 
 	meshNode->setDrawable(cubeModel);
 
@@ -141,69 +161,69 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	HMessageReader::MessageType messageType;
 
-	msgReader->fRead(msgReader->circBuff, messageType);
+	//msgReader->fRead(msgReader->circBuff, messageType);
 
-	switch (messageType)
-	{
-	case HMessageReader::eDefault:
-		printf("Hello! I am a default node.\n");
+	//switch (messageType)
+	//{
+	//case HMessageReader::eDefault:
+	//	printf("Hello! I am a default node.\n");
 
-		break;
+	//	break;
 
-	case HMessageReader::eNewMesh:
-		/*Add new mesh to scene.*/
-		//fAddMesh();
+	//case HMessageReader::eNewMesh:
+	//	/*Add new mesh to scene.*/
+	//	//fAddMesh();
 
-		break;
+	//	break;
 
-	case HMessageReader::eVertexChanged:
-		/*Vertices changed in a mesh. Update the information.*/
-		fModifyMesh();
+	//case HMessageReader::eVertexChanged:
+	//	/*Vertices changed in a mesh. Update the information.*/
+	//	fModifyMesh();
 
-		break;
+	//	break;
 
-	case HMessageReader::eNewMaterial:
-		/*A new material to add for a mesh in scene.*/
-		fAddMaterial();
+	//case HMessageReader::eNewMaterial:
+	//	/*A new material to add for a mesh in scene.*/
+	//	fAddMaterial();
 
-		break;
+	//	break;
 
-	case HMessageReader::eMaterialChanged:
-		/*A material is changed in a mesh. Update the information.*/
-		fModifyMaterial();
+	//case HMessageReader::eMaterialChanged:
+	//	/*A material is changed in a mesh. Update the information.*/
+	//	fModifyMaterial();
 
-		break;
+	//	break;
 
-	case HMessageReader::eNewLight:
-		/*A new light to add in the scene.*/
-		fAddLight();
+	//case HMessageReader::eNewLight:
+	//	/*A new light to add in the scene.*/
+	//	fAddLight();
 
-		break;
+	//	break;
 
-	case HMessageReader::eNewTransform:
-		/*A transform was added for any nodetype. Update the information.*/
-		fAddTransform();
+	//case HMessageReader::eNewTransform:
+	//	/*A transform was added for any nodetype. Update the information.*/
+	//	fAddTransform();
 
-		break;
+	//	break;
 
-	case HMessageReader::eNewCamera:
-		/*A new camera to add in the scene.*/
-		fAddCamera();
+	//case HMessageReader::eNewCamera:
+	//	/*A new camera to add in the scene.*/
+	//	fAddCamera();
 
-		break;
+	//	break;
 
-	case HMessageReader::eCameraChanged:
-		/*The camera is changed. Update the information.*/
-		fModifyCamera();
+	//case HMessageReader::eCameraChanged:
+	//	/*The camera is changed. Update the information.*/
+	//	fModifyCamera();
 
-		break;
+	//	break;
 
-	case HMessageReader::eNodeRemoved:
-		/*A node is removed from the scene. Update the scene.*/
-		fRemoveNode();
+	//case HMessageReader::eNodeRemoved:
+	//	/*A node is removed from the scene. Update the scene.*/
+	//	fRemoveNode();
 
-		break;
-	}
+	//	break;
+	//}
 }
 
 void HSceneViewer::render(float elapsedTime)
@@ -298,6 +318,8 @@ void HSceneViewer::fAddMesh()
 		Model* meshModel = Model::create(mesh);
 
 		SAFE_RELEASE(mesh);
+
+		Node* lightNode = _scene->findNode("pointLight");
 
 		Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
 
