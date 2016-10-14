@@ -47,6 +47,9 @@ public:
 
 	void fRead(circularBuffer& circBuff, MessageType& msgType);
 
+	/*Functions for processing deleted nodes*/
+	void fProcessDeletedObject(char* messageData, unsigned int deletedObjectCount);
+
 	/*Functions for processing mesh messages, getting the newly mesh data and also the updated vertices from the mesh.*/
 	void fProcessMesh(char* messageData, unsigned int meshCount);
 	void fGetNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices);

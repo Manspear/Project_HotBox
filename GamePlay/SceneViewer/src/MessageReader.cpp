@@ -48,6 +48,20 @@ void HMessageReader::fRead(circularBuffer& circBuff, MessageType& msgType)
 	delete msg;
 }
 
+void HMessageReader::fProcessDeletedObject(char * messageData, unsigned int deletedObjectCount)
+{
+	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)messageData + sizeof(hMainHeader);
+	remoh->nameLength;
+	remoh->nodeType;
+	remoh->name;
+
+	hRemovedObjectHeader temp;
+	temp.nodeType = remoh->nodeType;
+	temp.name = new char[remoh->nameLength];
+	memcpy((char*)temp.name, remoh + sizeof(hRemovedObjectHeader), temp.nameLength);
+	//removedList.push_back();
+}
+
 void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageType &msgType)
 {
 	/*Here the engine will act as a CONSUMER, to read the messages,
@@ -58,6 +72,15 @@ void HMessageReader::fProcessMessage(char* messageData, HMessageReader::MessageT
 
 	/*Read the main header to check what type of message to process.*/
 	hMainHeader mainHeader = *(hMainHeader*)messageData;
+
+	if (mainHeader.removedObjectCount > 0)
+	{
+		for (int i = 0; i < mainHeader.removedObjectCount; i++)
+		{
+			/*Process deleted object*/
+			
+		}
+	}
 
 	if (mainHeader.meshCount > 0)
 	{

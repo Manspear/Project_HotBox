@@ -5,6 +5,7 @@
 #include "MayaHeader.h"
 #include "CircularBuffer.h"
 #include "Producer.h"
+#include "Mutex.h"
 #include <iostream>
 #include <vector>
 #include <map>
@@ -17,7 +18,7 @@ void fMakeCameraMessage(hCameraHeader& gCam);
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
 Producer producer;
-
+Mutex mtx;
 float gClockTime;
 float gClockticks;
 float gMeshUpdateTimer;
@@ -182,12 +183,12 @@ void fFindShader(MObject& obj)
 
 }
 
-void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     /*Limit the number of "updates per second" of this function*/
     if (gMeshUpdateTimer > gDt30Fps)
     {
-        if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+        if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
         {
             MStatus res;
             MObject temp = plug.node();
@@ -229,9 +230,9 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &o
    // MGlobal::displayInfo(MString("Clock timer: ") + difftime(meshUpdateTimerCompare, meshUpdateTimer));
 }
 
-void fOnTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-    if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+    if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
     {
         MObject obj = plug.node();
         MStatus res;
@@ -268,9 +269,9 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPl
     }
 }
 
-void fOnNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-	if (msg & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
+	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
 		MStatus res;
 		MObject obj = plug.node(&res);
@@ -308,7 +309,7 @@ void fOnNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &o
 			}
 		}
 	}
-    else if (msg & MNodeMessage::AttributeMessage::kAttributeSet)
+    else if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
     {
         MObject obj = plug.node();
         MStatus res;
@@ -330,7 +331,7 @@ void fOnNodeAttrChange(MNodeMessage::AttributeMessage msg, MPlug &plug, MPlug &o
     }
 }
 
-void fOnNodeAttrAddedRemoved(MNodeMessage::AttributeMessage msg, MPlug &plug, void *clientData)
+void fOnNodeAttrAddedRemoved(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, void *clientData)
 {
 	MGlobal::displayInfo("Attribute Added or Removed! " + plug.info());
 }
@@ -547,19 +548,20 @@ void fOnNodeCreate(MObject& node, void *clientData)
         }
     }
 
-        if (res != MStatus::kSuccess && nt == eNodeType::mesh || res != MStatus::kSuccess && nt == eNodeType::transform)
-        {
-            queueList.push(node);
-        }
+	if (res != MStatus::kSuccess && nt == eNodeType::mesh || res != MStatus::kSuccess && nt == eNodeType::transform)
+	{
+		queueList.push(node);
+	}
+	
 
-        if (clientData != NULL)
+    if (clientData != NULL)
+    {
+        if (*(bool*)clientData == true && res == MStatus::kSuccess)
         {
-            if (*(bool*)clientData == true && res == MStatus::kSuccess)
-            {
-                queueList.pop();
-                delete clientData;
-            }
+            queueList.pop();
+            delete clientData;
         }
+    }
 }
 
 void fOnNodeNameChange(MObject &node, const MString &str, void *clientData)
@@ -676,6 +678,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
     check if a message is "active", if it's unactive, i.e already read, the queued thing may memcpy into it.
     */
+	mtx.lock();
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
@@ -683,6 +686,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
     producer.runProducer(gCb, (char*)msg, totPackageSize);
+	mtx.unlock();
 }
 
 void fMakeCameraMessage(hCameraHeader& gCam)
@@ -700,15 +704,17 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
 
+	mtx.lock();
 	memcpy(msg, (void*)&hMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&gCam, camMem);
 	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength);
 
 	producer.runProducer(gCb, (char*)msg, totalSize);
+	mtx.unlock();
 }
 
 void fMakeTransformMessage(MObject obj)
-{
+{ /*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
     MStatus res;
     MFnTransform trans(obj);
     hTransformHeader transH;
@@ -729,11 +735,11 @@ void fMakeTransformMessage(MObject obj)
 }
 void fMakeLightMessage()
 {
-
+	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
 }
 void fMakeGenericMessage()
 {
-    
+	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
 }
 
 void fIterateScene()
@@ -906,8 +912,10 @@ EXPORT MStatus initializePlugin(MObject obj)
 	MGlobal::displayInfo("Maya plugin loaded!");
 	// if res == kSuccess then the plugin has been loaded,
 	// otherwise it has not.
-	fAddCallbacks();
+	LPCWSTR mtxName = TEXT("producerMutex");
+	mtx = Mutex(mtxName);
 
+	fAddCallbacks();
 
 	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
@@ -928,18 +936,14 @@ EXPORT MStatus initializePlugin(MObject obj)
 	return res;
 }
 
-
 EXPORT MStatus uninitializePlugin(MObject obj)
 {
 	// simply initialize the Function set with the MObject that represents
 	// our plugin
 	MFnPlugin plugin(obj);
-
 	// if any resources have been allocated, release and free here before
 	// returning...
-
 	MMessage::removeCallbacks(ids);
-
 	MStatus status = plugin.deregisterCommand("helloWorld");
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MGlobal::displayInfo("Maya plugin unloaded!");

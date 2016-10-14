@@ -31,8 +31,10 @@ struct hRemovedObjectHeader
 {
 	unsigned int nodeType;
 	unsigned int nameLength;
+	const char* name;
 };
 
+static std::vector<hRemovedObjectHeader> removedList;
 /*
 Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself
   
