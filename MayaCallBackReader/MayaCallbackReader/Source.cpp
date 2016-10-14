@@ -21,6 +21,7 @@ void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
 Producer producer;
 Mutex mtx;
+
 float gClockTime;
 float gClockticks;
 float gMeshUpdateTimer;
@@ -418,7 +419,7 @@ void fLoadCamera(M3dView& activeView)
 		}
 	}
 
-	fMakeCameraMessage(hCam);
+	//fMakeCameraMessage(hCam);
 }
 
 void fCameraChanged(const MString &str, void* clientData)
@@ -448,7 +449,7 @@ void fCameraChanged(const MString &str, void* clientData)
 		}
 	}
 
-	fMakeCameraMessage(hCam);
+	//fMakeCameraMessage(hCam);
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -528,22 +529,22 @@ void fLoadTransform(MObject& obj, void* clientData)
 
 void fOnNodeCreate(MObject& node, void *clientData)
 {
-    eNodeType nt = eNodeType::notHandled;
+    eNodeType nt = eNodeType::notHandledNode;
     MStatus res = MStatus::kNotImplemented;
 
     MGlobal::displayInfo("GOT INTO NODECREATE!");
     if (node.hasFn(MFn::kMesh))
     {
-        nt = eNodeType::mesh; MGlobal::displayInfo("MESH!");
+        nt = eNodeType::meshNode; MGlobal::displayInfo("MESH!");
     }
     else if (node.hasFn(MFn::kTransform))
     {
-        nt = eNodeType::transform; MGlobal::displayInfo("TRANSFORM!");
+        nt = eNodeType::transformNode; MGlobal::displayInfo("TRANSFORM!");
     }
 
 	else if (node.hasFn(MFn::kCamera))
 	{
-		nt = eNodeType::camera; MGlobal::displayInfo("CAMERA!");
+		nt = eNodeType::cameraNode; MGlobal::displayInfo("CAMERA!");
 	}
 
     else if (node.hasFn(MFn::kDagNode))
@@ -553,7 +554,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
 
     switch (nt)
     {
-        case(eNodeType::mesh):
+        case(eNodeType::meshNode):
         {
             MFnMesh meshFn(node, &res);
             if (res == MStatus::kSuccess)
@@ -564,7 +565,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
             }
             break;
         }
-        case(eNodeType::transform):
+        case(eNodeType::transformNode):
         {
             MFnTransform transFn(node, &res);
 			if (res == MStatus::kSuccess)
@@ -574,7 +575,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
 			}
 			break;
         }
-		case(eNodeType::camera):
+		case(eNodeType::cameraNode):
 		{
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
@@ -588,13 +589,13 @@ void fOnNodeCreate(MObject& node, void *clientData)
                 fDagNodeAddCbks(node, clientData);
             break;
         }
-        case(eNodeType::notHandled):
+        case(eNodeType::notHandledNode):
         {
             break;
         }
     }
 
-	if (res != MStatus::kSuccess && nt == eNodeType::mesh || res != MStatus::kSuccess && nt == eNodeType::transform)
+	if (res != MStatus::kSuccess && nt == eNodeType::meshNode || res != MStatus::kSuccess && nt == eNodeType::transformNode)
 	{
 		queueList.push(node);
 	}
@@ -868,48 +869,56 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 	hRemovedObjectHeader roh;
 
 	mtx.lock();
-	if (nodeType == eNodeType::mesh)
+	if (nodeType == eNodeType::meshNode)
 	{
 		MFnMesh mesh(node, &res);
 		if (res == MStatus::kSuccess)
 		{
-			roh.nodeType = eNodeType::mesh;
+			roh.nodeType = eNodeType::meshNode;
 			roh.nameLength = std::strlen(mesh.name().asChar());
 			memcpy(msg, &mainH, sizeof(hMainHeader));
 			memcpy(msg + sizeof(hMainHeader), mesh.name().asChar(), roh.nameLength);
+
+			MGlobal::displayInfo(MString("Deleted mesh: ") + MString(mesh.name()));
 		}
 	}else
-	if (nodeType == eNodeType::transform)
+	if (nodeType == eNodeType::transformNode)
 	{
 		MFnTransform trans(node, &res);
 		if (res == MStatus::kSuccess)
 		{
-			roh.nodeType = eNodeType::transform;
+			roh.nodeType = eNodeType::transformNode;
 			roh.nameLength = std::strlen(trans.name().asChar());
 			memcpy(msg, &mainH, sizeof(hMainHeader));
 			memcpy(msg + sizeof(hMainHeader), trans.name().asChar(), roh.nameLength);
+
+			MGlobal::displayInfo(MString("Deleted transform: ") + MString(trans.name()));
 		}
 	}else
-	if (nodeType == eNodeType::camera)
+	if (nodeType == eNodeType::cameraNode)
 	{
 		MFnCamera cam(node, &res);
 		if (res == MStatus::kSuccess)
 		{
-			roh.nodeType = eNodeType::camera;
+			roh.nodeType = eNodeType::cameraNode;
 			roh.nameLength = std::strlen(cam.name().asChar());
 			memcpy(msg, &mainH, sizeof(hMainHeader));
 			memcpy(msg + sizeof(hMainHeader), cam.name().asChar(), roh.nameLength);
+
+			MGlobal::displayInfo(MString("Deleted camera: ") + MString(cam.name()));
 		}
 	}else
-	if (nodeType == eNodeType::pointLight)
+	if (nodeType == eNodeType::pointLightNode)
 	{
 		MFnPointLight pl(node, &res);
 		if (res == MStatus::kSuccess)
 		{
-			roh.nodeType = eNodeType::pointLight;
+			roh.nodeType = eNodeType::pointLightNode;
 			roh.nameLength = std::strlen(pl.name().asChar());
 			memcpy(msg, &mainH, sizeof(hMainHeader));
 			memcpy(msg + sizeof(hMainHeader), pl.name().asChar(), roh.nameLength);
+
+			MGlobal::displayInfo(MString("Deleted pointLight: ") + MString(pl.name()));
 		}
 	}
 	if (res == MStatus::kSuccess)

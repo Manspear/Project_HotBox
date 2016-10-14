@@ -7,12 +7,12 @@
 /*e for enum*/
 enum eNodeType
 {
-	mesh,
-	transform,
+	meshNode,
+	transformNode,
 	dagNode,
-	pointLight,
-	camera,
-	notHandled
+	pointLightNode,
+	cameraNode,
+	notHandledNode
 };
 
 /*Put the headers here.*/
