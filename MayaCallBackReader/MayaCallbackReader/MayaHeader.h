@@ -72,6 +72,10 @@ struct hCameraHeader
 	const char* cameraName;
 
 	float projMatrix[16];
+
+	float camTrans[3];
+	float camRot[3];
+	float camScale[3];
 };
 
 static std::vector<hCameraHeader> cameraList;

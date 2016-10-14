@@ -18,10 +18,11 @@ void HSceneViewer::initialize()
 	/*By default create an empty scene, fill with the nodes we send from Maya.*/
 	_scene = Scene::create();
 
-	msgReader = new HMessageReader();
+	//msgReader = new HMessageReader();
 
 	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
 	Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
+	
 	Node* cameraNode = _scene->addNode("camera");
 
 	cameraNode->setCamera(camera);
@@ -33,17 +34,22 @@ void HSceneViewer::initialize()
 	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
-	Node* lightNode = Node::create("pointLightShape1");
+	Light* light = Light::createPoint(Vector3(30.5f, 0.5f, 0.5f), 20);
 
-	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
+	lightNode->setLight(light);
 
 	lightNode->setLight(light);
 	lightNode->translate(Vector3(0, 0, 0));
 	_scene->addNode(lightNode);
 	lightNode->release();
-	light->release();
 
 	/*float size = 1.0f;
+
+	_scene->addNode(lightbla);
+
+	lightbla->release();
+
+	light->release();
 
 	float a = size * 0.5f;
 
@@ -102,21 +108,32 @@ void HSceneViewer::initialize()
 
 	mesh->release();
 
-	Material* material = cubeModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "DIRECTIONAL_LIGHT_COUNT 1");
+	Material* material = Material::create("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 
-	material->setParameterAutoBinding("u_worldViewProjectionMatrix", "WORLD_VIEW_PROJECTION_MATRIX");
-	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", "INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX");
+	RenderState::StateBlock* block = RenderState::StateBlock::create();
+	block->setCullFace(true);
+	block->setDepthTest(true);
+	material->setStateBlock(block);
 
-	material->getParameter("u_ambientColor")->setValue(Vector3(0.2f, 0.2f, 0.2f));
+	material->setParameterAutoBinding("u_worldViewMatrix", RenderState::AutoBinding::WORLD_VIEW_MATRIX);
+	material->setParameterAutoBinding("u_worldViewProjectionMatrix", RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
+	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-	material->getParameter("u_directionalLightColor[0]")->setValue(lightNode->getLight()->getColor());
-	material->getParameter("u_directionalLightDirection[0]")->bindValue(lightNode, &Node::getForwardVectorWorld);
+	Node* lightNode = _scene->findNode("lightNode");
 
-	Node* meshNode = Node::create("cube");
+	material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &Light::getColor);
+	material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &Light::getRangeInverse);
+	material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &Node::getTranslationView);
 	
-	Node* asdf = Node::create("shit");
 
-	meshNode->translate(0.f, 0.f, -7.f);
+	/*The input to the fragment shader have a vec4, and that's why it crashed.. when passing a Vector4.*/
+	material->getParameter("u_diffuseColor")->setValue(Vector4(0.5f, 0.5f, 0.5f, 0.0f));
+
+	Node* meshNode = Node::create("meshNode");
+
+	meshNode->translate(0.f, 0.f, -2.f);
+
+	cubeModel->setMaterial(material);
 
 	meshNode->setDrawable(cubeModel);
 
@@ -144,6 +161,7 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	//HMessageReader::MessageType messageType;
 	HMessageReader::sFoundInfo nfo;
+	msgReader->fRead(msgReader->circBuff, messageType);
 
 	/*
 	fRead calls functions that...
@@ -176,6 +194,8 @@ bool HSceneViewer::drawScene(Node* node)
     return true;
 }
 
+
+		Node* lightNode = _scene->findNode("pointLight");
 void HSceneViewer::keyEvent(Keyboard::KeyEvent evt, int key)
 {
     if (evt == Keyboard::KEY_PRESS)
