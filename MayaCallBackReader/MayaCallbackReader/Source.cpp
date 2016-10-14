@@ -13,8 +13,10 @@
 #include <time.h>
 using namespace std;
 
+void fMakeTransformMessage(MObject obj, hTransformHeader transH);
 void fMakeMeshMessage(MObject obj, bool isFromQueue);
 void fMakeCameraMessage(hCameraHeader& gCam);
+
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer gCb;
 Producer producer;
@@ -241,6 +243,7 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
             if (obj.hasFn(MFn::kTransform))
             {
                 MFnTransform fnTra(obj, &res);
+
                 if (res == MStatus::kSuccess)
                 {
                     MTransformationMatrix transMat = fnTra.transformationMatrix();
@@ -262,6 +265,14 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 							+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
 							+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
 							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+
+						hTransformHeader hTrans;
+
+						std::copy(trans, trans + 3, hTrans.trans);
+						std::copy(rot, rot + 3, hTrans.rot);
+						std::copy(scale, scale + 3, hTrans.scale);
+
+						fMakeTransformMessage(obj, hTrans);
                     }
                 }
             }
@@ -386,14 +397,7 @@ void fLoadCamera(M3dView& activeView)
 {
 	hCameraHeader hCam;
 	MStatus res;
-	MMatrix projMatrix;
-
-	activeView.projectionMatrix(projMatrix);
-
-	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
-	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
-
-	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
+	MFloatMatrix projMatrix;
 	
 	MDagPath cameraPath;
 
@@ -403,12 +407,18 @@ void fLoadCamera(M3dView& activeView)
 
 		if (res == MStatus::kSuccess)
 		{
+			MFloatMatrix projMatrix = camFn.projectionMatrix();
+
+			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
 			hCam.cameraNameLength = camFn.name().length();
 		}
 	}
 
-	fMakeCameraMessage(hCam);
+	//fMakeCameraMessage(hCam);
 }
 
 void fCameraChanged(const MString &str, void* clientData)
@@ -419,13 +429,6 @@ void fCameraChanged(const MString &str, void* clientData)
 
 	M3dView activeView = M3dView::active3dView();
 
-	activeView.projectionMatrix(projMatrix);
-
-	projMatrix.matrix[2][2] -= projMatrix.matrix[2][2];
-	projMatrix.matrix[3][2] -= projMatrix.matrix[3][2];
-
-	memcpy(hCam.projMatrix, &projMatrix, sizeof(float) * 16);
-
 	MDagPath cameraPath;
 
 	if (activeView.getCamera(cameraPath))
@@ -434,12 +437,18 @@ void fCameraChanged(const MString &str, void* clientData)
 
 		if (res == MStatus::kSuccess)
 		{
+			MFloatMatrix projMatrix = camFn.projectionMatrix();
+
+			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
 			hCam.cameraNameLength = camFn.name().length();
 		}
 	}
 
-	fMakeCameraMessage(hCam);
+	//fMakeCameraMessage(hCam);
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -483,6 +492,40 @@ void fDagNodeAddCbks(MObject& node, void* clientData)
     }    
 }
 
+void fLoadTransform(MObject& obj, void* clientData)
+{
+	MStatus res;
+
+	if (obj.hasFn(MFn::kTransform))
+	{
+		MFnTransform fnTra(obj, &res);
+
+		if (res == MStatus::kSuccess)
+		{
+			MTransformationMatrix transMat = fnTra.transformationMatrix();
+
+			MTransformationMatrix::RotationOrder rotOrder;
+			double rot[3];
+			double scale[3];
+			MVector tempTrans = transMat.getTranslation(MSpace::kObject);
+			double trans[3];
+			tempTrans.get(trans);
+
+			transMat.getRotation(rot, rotOrder);
+			transMat.getScale(scale, MSpace::kObject);
+
+			hTransformHeader hTrans;
+
+			std::copy(trans, trans + 3, hTrans.trans);
+			std::copy(rot, rot + 3, hTrans.rot);
+			std::copy(scale, scale + 3, hTrans.scale);
+
+			fMakeTransformMessage(obj, hTrans);
+
+			}
+		}
+}
+
 void fOnNodeCreate(MObject& node, void *clientData)
 {
     eNodeType nt = eNodeType::notHandled;
@@ -524,9 +567,12 @@ void fOnNodeCreate(MObject& node, void *clientData)
         case(eNodeType::transform):
         {
             MFnTransform transFn(node, &res);
-            if (res == MStatus::kSuccess)
-                fTransAddCbks(node, clientData);
-            break;
+			if (res == MStatus::kSuccess)
+			{
+				fLoadTransform(node, clientData);
+				fTransAddCbks(node, clientData);
+			}
+			break;
         }
 		case(eNodeType::camera):
 		{
@@ -713,25 +759,87 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 	mtx.unlock();
 }
 
-void fMakeTransformMessage(MObject obj)
+void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 { /*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
     MStatus res;
     MFnTransform trans(obj);
-    hTransformHeader transH;
     MObject childObj;
+	MObject parentObj;
 
-    /*Getting the first mesh child*/
-    for (unsigned int i = 0; i < trans.childCount(); i++)
-    {
-        childObj = trans.parent(i, &res);
-        if (childObj.hasFn(MFn::kTransform))
-        {
-            MFnMesh meshFn(childObj);
-            transH.childName = meshFn.name().asChar();
-            transH.childNameLength = meshFn.name().length();
-            break;
-        }
-    }
+	/*If the transform has a parent, obtain it's name and length.*/
+	if (trans.hasParent(obj))
+	{
+		/*Getting the first parent for mesh, camera and light.*/
+		for (unsigned int i = 0; i < trans.parentCount(); i++)
+		{
+			parentObj = trans.parent(i, &res);
+			if (parentObj.hasFn(MFn::kTransform))
+			{
+				MFnMesh meshFn(childObj, &res);
+				if (res == MStatus::kSuccess)
+				{
+					transH.parentName = meshFn.name().asChar();
+					transH.parentNameLength = meshFn.name().length();
+					break;
+				}
+				MFnCamera cameraFn(childObj, &res);
+				if (res == MStatus::kSuccess)
+				{
+					transH.parentName = meshFn.name().asChar();
+					transH.parentNameLength = meshFn.name().length();
+					break;
+				}
+				MFnLight lightFn(childObj, &res);
+				if (res == MStatus::kSuccess)
+				{
+					transH.parentName = meshFn.name().asChar();
+					transH.parentNameLength = meshFn.name().length();
+					break;
+				}
+			}
+		}
+	}
+	/*If there are no parents of this transform, set default values.*/
+	else
+	{
+		transH.parentName = "1337";
+		transH.parentNameLength = 0;
+	}
+
+	/*Getting the first child for mesh, camera and light.*/
+	for (unsigned int i = 0; i < trans.childCount(); i++)
+	{
+		childObj = trans.child(i, &res);
+
+		MFnTransform childTrans(childObj);
+		if (childObj.hasFn(MFn::kTransform))
+		{
+
+			transH.childName = childTrans.name().asChar();
+			transH.childNameLength = childTrans.name().length();
+		}
+		MFnMesh meshFn(childObj, &res);
+		if (res == MStatus::kSuccess)
+		{
+			transH.childName = meshFn.name().asChar();
+			transH.childNameLength = meshFn.name().length();
+			break;
+		}
+		MFnCamera cameraFn(childObj, &res);
+		if (res == MStatus::kSuccess)
+		{
+			transH.childName = cameraFn.name().asChar();
+			transH.childNameLength = cameraFn.name().length();
+			break;
+		}
+		MFnLight lightFn(childObj, &res);
+		if (res == MStatus::kSuccess)
+		{
+			transH.childName = lightFn.name().asChar();
+			transH.childNameLength = lightFn.name().length();
+			break;
+		}
+	}
 }
 void fMakeLightMessage()
 {
@@ -746,13 +854,13 @@ void fIterateScene()
 {
     MStatus res;
     MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
-    
+
     if (res == MStatus::kSuccess)
     {
         while (!nodeIt.isDone())
         {
-            fOnNodeCreate(nodeIt.currentItem(), NULL);
-            nodeIt.next();
+			fOnNodeCreate(nodeIt.currentItem(), NULL);
+			nodeIt.next();
         }
     }
 }
@@ -914,7 +1022,6 @@ EXPORT MStatus initializePlugin(MObject obj)
 	// otherwise it has not.
 	LPCWSTR mtxName = TEXT("producerMutex");
 	mtx = Mutex(mtxName);
-
 	fAddCallbacks();
 
 	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));

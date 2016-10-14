@@ -81,6 +81,9 @@ struct hTransformHeader
     unsigned int childNameLength;
     const char* childName;
 
+	unsigned int parentNameLength;
+	const char* parentName;
+
     float trans[3];
     float rot[3];
     float scale[3];
