@@ -418,7 +418,7 @@ void fLoadCamera(M3dView& activeView)
 		}
 	}
 
-	//fMakeCameraMessage(hCam);
+	fMakeCameraMessage(hCam);
 }
 
 void fCameraChanged(const MString &str, void* clientData)
@@ -448,7 +448,7 @@ void fCameraChanged(const MString &str, void* clientData)
 		}
 	}
 
-	//fMakeCameraMessage(hCam);
+	fMakeCameraMessage(hCam);
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -743,11 +743,6 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 
 	hMainHead.cameraCount = 1;
 
-	hMainHead.meshCount = 0;
-	hMainHead.lightCount = 0;
-	hMainHead.materialCount = 0;
-	hMainHead.transformCount = 0;
-
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
 
 	mtx.lock();
@@ -872,6 +867,7 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 	mainH.removedObjectCount = 1;
 	hRemovedObjectHeader roh;
 
+	mtx.lock();
 	if (nodeType == eNodeType::mesh)
 	{
 		MFnMesh mesh(node, &res);
@@ -920,6 +916,7 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 	{
 		producer.runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
 	}
+	mtx.unlock();
 }
 
 void fOnNodeRemoved(MObject& node, void* clientData)
