@@ -32,6 +32,8 @@ float gDt30Fps;
 
 char* msg;
 
+int camCount = 0;
+
 struct sPoint
 {
     float x, y, z;
@@ -261,10 +263,10 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
                     MFnAttribute fnAtt(plug.attribute(), &res);
                     if (res == MStatus::kSuccess)
                     {
-                        MGlobal::displayInfo("Transform node: " + fnTra.name() 
+                        /*MGlobal::displayInfo("Transform node: " + fnTra.name() 
 							+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
 							+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
-							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);*/
 
 						hTransformHeader hTrans;
 
@@ -404,13 +406,34 @@ void fLoadCamera(M3dView& activeView)
 	if(activeView.getCamera(cameraPath))
 	{
 		MFnCamera camFn(cameraPath.node(), &res);
-
 		if (res == MStatus::kSuccess)
 		{
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
 			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
 			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+			MFnTransform transParent(camFn.parent(0));
+
+			MTransformationMatrix::RotationOrder rotOrder;
+			
+			MVector tempTrans = transParent.getTranslation(MSpace::kObject);
+			double trans[3];
+			tempTrans.get(trans);
+
+			double rot[3];
+			transParent.getRotation(rot, rotOrder);
+			double scale[3];
+			transParent.getScale(scale);
+
+			MGlobal::displayInfo("Transform node: " + transParent.name()
+				+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2]
+				+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2]
+				+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+
+			std::copy(trans, trans + 3, hCam.camTrans);
+			std::copy(rot, rot + 3, hCam.camRot);
+			std::copy(scale, scale + 3, hCam.camScale);
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
@@ -434,13 +457,34 @@ void fCameraChanged(const MString &str, void* clientData)
 	if (activeView.getCamera(cameraPath))
 	{
 		MFnCamera camFn(cameraPath.node(), &res);
-
 		if (res == MStatus::kSuccess)
 		{
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
 			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
 			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+			MFnTransform transParent(camFn.parent(0));
+
+			MTransformationMatrix::RotationOrder rotOrder;
+
+			MVector tempTrans = transParent.getTranslation(MSpace::kObject);
+			double trans[3];
+			tempTrans.get(trans);
+
+			double rot[3];
+			transParent.getRotation(rot, rotOrder);
+			double scale[3];
+			transParent.getScale(scale);
+
+			MGlobal::displayInfo("Transform node: " + transParent.name()
+				+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2]
+				+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2]
+				+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);
+
+			std::copy(trans, trans + 3, hCam.camTrans);
+			std::copy(rot, rot + 3, hCam.camRot);
+			std::copy(scale, scale + 3, hCam.camScale);
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
@@ -458,13 +502,8 @@ void fCameraAddCbks(MObject& node, void* clientData)
 	MFnCamera camFn(node, &res);
 	if (res == MStatus::kSuccess)
 	{
-		M3dView activeCamView = M3dView::active3dView(&res);
-
 		if (res == MStatus::kSuccess)
 		{
-			/*Load the active camera when plugin is initialized.*/
-			fLoadCamera(activeCamView);
-
 			/*Collect changes when active camera changes.*/
 			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
 			if (res == MStatus::kSuccess)
@@ -521,9 +560,8 @@ void fLoadTransform(MObject& obj, void* clientData)
 			std::copy(scale, scale + 3, hTrans.scale);
 
 			fMakeTransformMessage(obj, hTrans);
-
-			}
 		}
+	}
 }
 
 void fOnNodeCreate(MObject& node, void *clientData)
@@ -576,6 +614,18 @@ void fOnNodeCreate(MObject& node, void *clientData)
         }
 		case(eNodeType::camera):
 		{
+			M3dView activeCamView = M3dView::active3dView(&res);
+
+			if (res == MStatus::kSuccess)
+			{
+				if (camCount == 0)
+				{
+					/*Load the active camera when plugin is initialized.*/
+					fLoadCamera(activeCamView);
+					camCount++;
+				}
+			}
+
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
 				fCameraAddCbks(node, clientData);
@@ -777,13 +827,6 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 					transH.parentNameLength = meshFn.name().length();
 					break;
 				}
-				MFnCamera cameraFn(childObj, &res);
-				if (res == MStatus::kSuccess)
-				{
-					transH.parentName = meshFn.name().asChar();
-					transH.parentNameLength = meshFn.name().length();
-					break;
-				}
 				MFnLight lightFn(childObj, &res);
 				if (res == MStatus::kSuccess)
 				{
@@ -818,13 +861,6 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 		{
 			transH.childName = meshFn.name().asChar();
 			transH.childNameLength = meshFn.name().length();
-			break;
-		}
-		MFnCamera cameraFn(childObj, &res);
-		if (res == MStatus::kSuccess)
-		{
-			transH.childName = cameraFn.name().asChar();
-			transH.childNameLength = cameraFn.name().length();
 			break;
 		}
 		MFnLight lightFn(childObj, &res);
