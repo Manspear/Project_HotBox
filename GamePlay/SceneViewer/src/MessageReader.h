@@ -9,10 +9,10 @@
 class HMessageReader
 {
 public:
-
 	enum MessageType
 	{
 		eNewMesh,
+		eMeshChanged,
 		eVertexChanged,
 		eNewMaterial,
 		eMaterialChanged,
@@ -22,6 +22,12 @@ public:
 		eNewLight,
 		eNodeRemoved,
 		eDefault
+	};
+
+	struct sFoundInfo
+	{
+		MessageType msgType;
+		unsigned int index = INT_MAX;
 	};
 
 	size_t bufferSize;
@@ -48,10 +54,10 @@ public:
 	void fRead(circularBuffer& circBuff, MessageType& msgType);
 
 	/*Functions for processing deleted nodes*/
-	void fProcessDeletedObject(char* messageData, unsigned int deletedObjectCount);
+	void fProcessDeletedObject(char* messageData);
 
 	/*Functions for processing mesh messages, getting the newly mesh data and also the updated vertices from the mesh.*/
-	void fProcessMesh(char* messageData, unsigned int meshCount);
+	void fProcessMesh(char* messageData);
 	void fGetNewMesh(char * meshName, std::vector<hVertexHeader>& vertexList, unsigned int & numVertices, unsigned int * indexList, unsigned int & numIndices);
 	void fGetVertexUpdate(char* meshName, void* updatedVertexList, unsigned int* indexlist, unsigned int& numVerticesModified);
 
@@ -69,10 +75,12 @@ public:
 	void fGetNewTransform(char* childName, float translation[3], float scale[3], float rotation[4]);
 
 	/*Functions for processing camera messages and getting the new camera.*/
-	void fProcessCamera(char* messageData, unsigned int cameraCount);
+	void fProcessCamera(char* messageData);
 	void fGetNewCamera(char* cameraName, float cameraProjMatrix[16]);
-
 	void fCameraChanged(char* cameraName);
+
+	/*Functions for finding objects in the scene*/
+	sFoundInfo fFindMesh(const char* mName);
 
 private:
 

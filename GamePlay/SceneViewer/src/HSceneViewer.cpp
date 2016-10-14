@@ -152,7 +152,7 @@ void HSceneViewer::update(float elapsedTime)
 
 	case HMessageReader::eNewMesh:
 		/*Add new mesh to scene.*/
-		//fAddMesh();
+		fAddMesh();
 
 		break;
 
