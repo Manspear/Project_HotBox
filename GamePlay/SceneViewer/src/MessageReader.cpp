@@ -231,12 +231,13 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::No
 	nd->setTranslation(transH.trans[0], transH.trans[1], transH.trans[2]);
 	nd->setRotation(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
 	nd->setScale(transH.scale[0], transH.scale[1], transH.scale[2]);
-	if (transH.childNameLength > 0)
-	{
-		gameplay::Node* child = scene->findNode(transH.childName);
-		if (child != NULL)
-			nd->addChild(child);
-	}
+	/*This should only be used if you have more than one child*/
+	//if (transH.childNameLength > 0)
+	//{
+	//	gameplay::Node* child = scene->findNode(transH.childName);
+	//	if (child != NULL)
+	//		nd->addChild(child);
+	//}
 }
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
@@ -253,12 +254,32 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 {
 	/*Fill the transformlist vector for this process.*/
 	hTransformHeader transH = *(hTransformHeader*)(messageData + sizeof(hMainHeader));
-	transH.childName = new char[transH.childNameLength];
-	memcpy(&transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
-	gameplay::Node* nd = scene->findNode(transH.childName);
+	if (transH.childNameLength > 0)
+	{
+		transH.childName = new char[transH.childNameLength + 1];
+		memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
+		(char)transH.childName[transH.childNameLength] = '\0';
+		gameplay::Node* nd = scene->findNode(transH.childName);
 
-	fModifyNodeTransform(transH, nd, scene);
-	delete[] transH.childName;
+		if (nd == NULL)
+		{
+			/*testShit*/
+			int asdf = 123;
+			fProcessCamera(messageData, scene);
+		}
+		fModifyNodeTransform(transH, nd, scene);
+		delete[] transH.childName;
+
+		/*
+		If you know there is a child, but you can't find it, 
+		try to find it again at a later time.
+		So... Create a queue?
+		How to create a queue?
+		Just add the childName to a vector containing other names.
+		This vecto we call the childFindQueue.
+		It is called once per update, and it operates by FIFO.
+		*/
+	}
 }
 
 void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
