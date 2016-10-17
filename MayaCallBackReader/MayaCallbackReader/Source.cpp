@@ -283,6 +283,7 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 
 					transMat.getRotation(rot, rotOrder);
 					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kObject);
+					transMat.getScale(scale, MSpace::kObject);
 
                     MFnAttribute fnAtt(plug.attribute(), &res);
                     if (res == MStatus::kSuccess)
@@ -822,41 +823,42 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
     MStatus res;
     MFnTransform trans(obj);
     MObject childObj;
-	MObject parentObj;
-
-
+	//MObject parentObj;
+	hMainHeader mainH;
+	mainH.transformCount = 1;
+	bool foundChild = false;
 	/*If the transform has a parent, obtain it's name and length.*/
-	if (trans.hasParent(obj))
-	{
-		/*Getting the first parent for mesh, camera and light.*/
-		for (unsigned int i = 0; i < trans.parentCount(); i++)
-		{
-			parentObj = trans.parent(i, &res);
-			if (parentObj.hasFn(MFn::kTransform))
-			{
-				MFnMesh meshFn(childObj, &res);
-				if (res == MStatus::kSuccess)
-				{
-					transH.parentName = meshFn.name().asChar();
-					transH.parentNameLength = meshFn.name().length();
-					break;
-				}
-				MFnLight lightFn(childObj, &res);
-				if (res == MStatus::kSuccess)
-				{
-					transH.parentName = meshFn.name().asChar();
-					transH.parentNameLength = meshFn.name().length();
-					break;
-				}
-			}
-		}
-	}
-	/*If there are no parents of this transform, set default values.*/
-	else
-	{
-		transH.parentName = "1337";
-		transH.parentNameLength = 0;
-	}
+	//if (trans.hasParent(obj))
+	//{
+	//	/*Getting the first parent for mesh, camera and light.*/
+	//	for (unsigned int i = 0; i < trans.parentCount(); i++)
+	//	{
+	//		parentObj = trans.parent(i, &res);
+	//		if (parentObj.hasFn(MFn::kTransform))
+	//		{
+	//			MFnMesh meshFn(childObj, &res);
+	//			if (res == MStatus::kSuccess)
+	//			{
+	//				transH.parentName = meshFn.name().asChar();
+	//				transH.parentNameLength = meshFn.name().length();
+	//				break;
+	//			}
+	//			MFnLight lightFn(childObj, &res);
+	//			if (res == MStatus::kSuccess)
+	//			{
+	//				transH.parentName = meshFn.name().asChar();
+	//				transH.parentNameLength = meshFn.name().length();
+	//				break;
+	//			}
+	//		}
+	//	}
+	//}
+	///*If there are no parents of this transform, set default values.*/
+	//else
+	//{
+	//	transH.parentName = "1337";
+	//	transH.parentNameLength = 0;
+	//}
 
 	/*Getting the first child for mesh, camera and light.*/
 	for (unsigned int i = 0; i < trans.childCount(); i++)
@@ -881,8 +883,24 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 		{
 			transH.childName = meshFn.name().asChar();
 			transH.childNameLength = meshFn.name().length();
+			foundChild = true;
 			break;
 		}
+	}
+	if (foundChild)
+	{
+		mtx.lock();
+		memcpy(msg, &mainH, sizeof(hMainHeader));
+		memcpy(msg + sizeof(hMainHeader), &transH, sizeof(hTransformHeader));
+		memcpy(msg + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childName, transH.childNameLength);
+		int totPacketSize = sizeof(hMainHeader) + sizeof(hTransformHeader) + transH.childNameLength;
+		producer.runProducer(
+			gCb,
+			msg,
+			sizeof(hMainHeader) +
+			sizeof(hTransformHeader) +
+			transH.childNameLength);
+		mtx.unlock();
 	}
 }
 void fMakeLightMessage()

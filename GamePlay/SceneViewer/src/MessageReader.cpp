@@ -231,12 +231,13 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::No
 	nd->setTranslation(transH.trans[0], transH.trans[1], transH.trans[2]);
 	nd->setRotation(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
 	nd->setScale(transH.scale[0], transH.scale[1], transH.scale[2]);
-	if (transH.childNameLength > 0)
-	{
-		gameplay::Node* child = scene->findNode(transH.childName);
-		if (child != NULL)
-			nd->addChild(child);
-	}
+	/*This should only be used if you have more than one child*/
+	//if (transH.childNameLength > 0)
+	//{
+	//	gameplay::Node* child = scene->findNode(transH.childName);
+	//	if (child != NULL)
+	//		nd->addChild(child);
+	//}
 }
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
@@ -256,13 +257,15 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 	if (transH.childNameLength > 0)
 	{
 		transH.childName = new char[transH.childNameLength + 1];
-		memcpy(&transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
+		memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
 		(char)transH.childName[transH.childNameLength] = '\0';
 		gameplay::Node* nd = scene->findNode(transH.childName);
 
 		if (nd == NULL)
 		{
-
+			/*testShit*/
+			int asdf = 123;
+			fProcessCamera(messageData, scene);
 		}
 		fModifyNodeTransform(transH, nd, scene);
 		delete[] transH.childName;
