@@ -277,12 +277,12 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
                     MTransformationMatrix::RotationOrder rotOrder;
 					double rot[4];
 					double scale[3];
-					MVector tempTrans = transMat.getTranslation(MSpace::kObject);
+					MVector tempTrans = transMat.getTranslation(MSpace::kWorld);
 					double trans[3];
 					tempTrans.get(trans); 
-
+					//trans[0] = -trans[0];
 					transMat.getRotation(rot, rotOrder);
-					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kObject);
+					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kWorld);
 					transMat.getScale(scale, MSpace::kObject);
 
                     MFnAttribute fnAtt(plug.attribute(), &res);
@@ -525,12 +525,12 @@ void fCameraAddCbks(MObject& node, void* clientData)
 
 		if (res == MStatus::kSuccess)
 		{
-			//if (firstActiveCam == true)
-			//{
-			//	/*Load the active camera when plugin is initialized.*/
-			//	fLoadCamera(activeCamView);
-			//	firstActiveCam = false;
-			//}
+			if (firstActiveCam == true)
+			{
+				/*Load the active camera when plugin is initialized.*/
+				fLoadCamera(activeCamView);
+				firstActiveCam = false;
+			}
 
 			/*Collect changes when active camera changes.*/
 			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
