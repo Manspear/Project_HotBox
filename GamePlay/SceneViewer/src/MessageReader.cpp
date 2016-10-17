@@ -68,6 +68,7 @@ void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* 
 	{
 		scene->removeNode(nd);
 	}
+	delete[] temp.name;
 }
 
 void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
@@ -157,6 +158,7 @@ struct sMeshVertices
 	std::vector<sBuiltVertex> vertices;
 };
 
+/*Depending on what's changed, change different values*/
 void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the meshHeader from messageData.*/
@@ -186,47 +188,68 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 	}
 	else
 	{
-		/*The node is new*/
+		fCreateNewMeshNode(meshName, vertList, meshHeader, nd, scene);
+	}
+	delete[] meshName;
+	delete[] prntTransName;
+}
 
-		nd = gameplay::Node::create(meshName);
+void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList, 
+										hMeshHeader& meshHeader, gameplay::Node* nd, 
+										gameplay::Scene* scene)
+{
+	/*The node is new*/
+	nd = gameplay::Node::create(meshName);
 
-		gameplay::VertexFormat::Element elements[] = {
-			gameplay::VertexFormat::Element(gameplay::VertexFormat::POSITION, 3),
-			gameplay::VertexFormat::Element(gameplay::VertexFormat::TEXCOORD0, 2),
-			gameplay::VertexFormat::Element(gameplay::VertexFormat::NORMAL, 3)
-		};
-		const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
+	gameplay::VertexFormat::Element elements[] = {
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::POSITION, 3),
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::TEXCOORD0, 2),
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::NORMAL, 3)
+	};
+	const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
 
-		gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader.vertexCount, true);
-		mesh->setVertexData(&vertList.vertexList[0], 0, meshHeader.vertexCount);
+	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader.vertexCount, true);
+	mesh->setVertexData(&vertList.vertexList[0], 0, meshHeader.vertexCount);
 
-		gameplay::Model* meshModel = gameplay::Model::create(mesh);
+	gameplay::Model* meshModel = gameplay::Model::create(mesh);
 
-		gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
-		
-		gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
-		block->setCullFace(true);
-		block->setDepthTest(true);
-		material->setStateBlock(block);
+	gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 
-		material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
-		material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
-		material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
+	gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
+	block->setCullFace(true);
+	block->setDepthTest(true);
+	material->setStateBlock(block);
 
-		gameplay::Node* lightNode = scene->findNode("pointLightShape1");
+	material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
+	material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
+	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-		material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
-		material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
-		material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
+	gameplay::Node* lightNode = scene->findNode("pointLightShape1");
 
-		material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(0.5, 0.5, 0.5));
-		material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(0.5, 0.5, 0.5, 0.5));
+	material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
+	material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
+	material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
 
-		nd->setDrawable(meshModel);
+	material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(0.5, 0.5, 0.5));
+	material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(0.5, 0.5, 0.5, 0.5));
 
-		nd->setTranslation(gameplay::Vector3(0, 0, -3));
+	nd->setDrawable(meshModel);
 
-		scene->addNode(nd);
+	nd->setTranslation(gameplay::Vector3(0, 0, -3));
+
+	scene->addNode(nd);
+}
+
+void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::Node* nd, gameplay::Scene* scene)
+{
+	nd->setTranslation(transH.trans[0], transH.trans[1], transH.trans[2]);
+	nd->setRotation(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
+	nd->setScale(transH.scale[0], transH.scale[1], transH.scale[2]);
+	if (transH.childNameLength > 0)
+	{
+		gameplay::Node* child = scene->findNode(transH.childName);
+		if (child != NULL)
+			nd->addChild(child);
 	}
 }
 
@@ -243,6 +266,13 @@ void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
 void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene)
 {
 	/*Fill the transformlist vector for this process.*/
+	hTransformHeader transH = *(hTransformHeader*)(messageData + sizeof(hMainHeader));
+	transH.childName = new char[transH.childNameLength];
+	memcpy(&transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
+	gameplay::Node* nd = scene->findNode(transH.childName);
+
+	fModifyNodeTransform(transH, nd, scene);
+	delete[] transH.childName;
 }
 
 void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)

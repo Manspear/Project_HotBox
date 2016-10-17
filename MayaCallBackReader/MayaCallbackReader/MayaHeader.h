@@ -85,7 +85,7 @@ struct hTransformHeader
 	const char* parentName;
 
     float trans[3];
-    float rot[3];
+    float rot[4];
     float scale[3];
 };
 

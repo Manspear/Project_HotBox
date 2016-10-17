@@ -250,13 +250,14 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
                     MTransformationMatrix transMat = fnTra.transformationMatrix();
 
                     MTransformationMatrix::RotationOrder rotOrder;
-                    double rot[3];
-                    double scale[3];
+					double rot[4];
+					double scale[3];
 					MVector tempTrans = transMat.getTranslation(MSpace::kObject);
-					double trans[3]; 
-					tempTrans.get(trans);
+					double trans[3];
+					tempTrans.get(trans); 
 
-					transMat.getRotation(rot, rotOrder);
+					//transMat.getRotation(rot, rotOrder);
+					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kObject);
                     transMat.getScale(scale, MSpace::kObject);
 
                     MFnAttribute fnAtt(plug.attribute(), &res);
@@ -270,7 +271,7 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 						hTransformHeader hTrans;
 
 						std::copy(trans, trans + 3, hTrans.trans);
-						std::copy(rot, rot + 3, hTrans.rot);
+						std::copy(rot, rot + 4, hTrans.rot);
 						std::copy(scale, scale + 3, hTrans.scale);
 
 						fMakeTransformMessage(obj, hTrans);
@@ -938,7 +939,7 @@ void fOnMeshRemoved(MObject& node, void* clientData)
 	MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
 
 	/*Make a meshRemoved message*/
-
+	fMakeRemovedMessage(node, eNodeType::meshNode);
 }
 void fOnTransformRemoved(MObject& node, void* clientData)
 {
