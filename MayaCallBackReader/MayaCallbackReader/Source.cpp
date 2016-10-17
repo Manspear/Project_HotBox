@@ -451,7 +451,7 @@ void fLoadCamera(M3dView& activeView)
 				double camScale[3];
 				fnTransform.getScale(camScale);
 				double camQuat[4];
-				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kObject);
+				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kWorld);
 
 				std::copy(camTrans, camTrans + 3, hCam.trans);
 				std::copy(camScale, camScale + 3, hCam.scale);
@@ -498,7 +498,7 @@ void fCameraChanged(const MString &str, void* clientData)
 				double camScale[3];
 				fnTransform.getScale(camScale);
 				double camQuat[4];
-				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kObject);
+				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kWorld);
 
 				std::copy(camTrans, camTrans + 3, hCam.trans);
 				std::copy(camScale, camScale + 3, hCam.scale);
@@ -925,11 +925,14 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 			roh.nodeType = eNodeType::meshNode;
 			roh.nameLength = std::strlen(mesh.name().asChar());
 			memcpy(msg, &mainH, sizeof(hMainHeader));
-			memcpy(msg + sizeof(hMainHeader), mesh.name().asChar(), roh.nameLength);
-
+			/*First removed object header*/
+			memcpy(msg + sizeof(hMainHeader), &roh, sizeof(hRemovedObjectHeader));
+			/*Then the name*/
+			memcpy(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), mesh.name().asChar(), roh.nameLength);
+			
 			MGlobal::displayInfo(MString("Deleted mesh: ") + MString(mesh.name()));
 		}
-	}else
+	}/*else
 	if (nodeType == eNodeType::transformNode)
 	{
 		MFnTransform trans(node, &res);
@@ -968,7 +971,7 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 
 			MGlobal::displayInfo(MString("Deleted pointLight: ") + MString(pl.name()));
 		}
-	}
+	}*/
 	if (res == MStatus::kSuccess)
 	{
 		producer.runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
