@@ -8,6 +8,7 @@
 #include "../../../MayaCallBackReader/MayaCallbackReader/MayaHeader.h"
 
 #include <string>
+#include <queue>
 
 class HMessageReader
 {
@@ -35,6 +36,8 @@ public:
 
 	size_t bufferSize;
 
+	std::queue<hTransformHeader> tranQ;
+
 	int delayTime;
 
 	int numMessages;
@@ -55,6 +58,11 @@ public:
 	void fProcessMessage(char* messageData, gameplay::Scene* scene);
 
 	void fRead(circularBuffer& circBuff, gameplay::Scene* scene);
+
+	/*
+	This function should preferably be called once per 60 or 30 fps
+	*/
+	void fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene);
 
 	/*Functions for processing deleted nodes*/
 	void fProcessDeletedObject(char* messageData, gameplay::Scene* scene);
@@ -94,6 +102,8 @@ private:
 	We need to be able to have more than one child in the future.
 	*/
 	void fModifyNodeTransform(hTransformHeader& transH, gameplay::Node* nd, gameplay::Scene* scene);
+	
+	char* msg;
 };
 
 

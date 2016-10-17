@@ -5,7 +5,7 @@ HMessageReader::HMessageReader()
 	bufferSize = 8 << 20;
 	chunkSize = 256;
 	maxSize = bufferSize / 4;
-
+	msg = new char[maxSize];
 	delayTime = 0;
 
 	numMessages = 1;
@@ -24,17 +24,16 @@ HMessageReader::~HMessageReader()
 	{
 
 	}
+	delete[] msg;
 }
 
 void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 {
-	char* msg = new char[maxSize];
 	size_t length;
 	if (circBuff.pop(msg, length))
 	{
 		fProcessMessage(msg, scene);
 	}
-	delete[] msg;
 }
 
 void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* scene)
@@ -231,6 +230,10 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::No
 	nd->setTranslation(transH.trans[0], transH.trans[1], transH.trans[2]);
 	nd->setRotation(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
 	nd->setScale(transH.scale[0], transH.scale[1], transH.scale[2]);
+
+	//nd->translate(transH.trans[0], transH.trans[1], transH.trans[2]);
+	//nd->rotate(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
+	//nd->scale(transH.scale[0], transH.scale[1], transH.scale[2]);
 	/*This should only be used if you have more than one child*/
 	//if (transH.childNameLength > 0)
 	//{
@@ -238,6 +241,20 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::No
 	//	if (child != NULL)
 	//		nd->addChild(child);
 	//}
+}
+
+void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene)
+{
+	if (tranQ.size() > 0)
+	{
+		gameplay::Node* nd = scene->findNode(tranQ.front().childName + '\0');
+		if (nd != NULL)
+		{
+			fModifyNodeTransform(tranQ.front(), nd, scene);
+			//delete[] tranQ.front().childName;
+			tranQ.pop();
+		}
+	}
 }
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
@@ -254,22 +271,24 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 {
 	/*Fill the transformlist vector for this process.*/
 	hTransformHeader transH = *(hTransformHeader*)(messageData + sizeof(hMainHeader));
+	hTransformHeader* ads = (hTransformHeader*)(messageData + sizeof(hMainHeader));
+	ads->childName;
 	if (transH.childNameLength > 0)
 	{
-		transH.childName = new char[transH.childNameLength + 1];
-		memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
-		(char)transH.childName[transH.childNameLength] = '\0';
-		gameplay::Node* nd = scene->findNode(transH.childName);
+		//transH.childName = new char[transH.childNameLength + 1];
+		//memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
+		gameplay::Node* nd = scene->findNode(transH.childName + '\0');
 
 		if (nd == NULL)
 		{
-			/*testShit*/
-			int asdf = 123;
-			fProcessCamera(messageData, scene);
+			/*Add the translate header to a queue!*/
+			tranQ.push(transH);
 		}
-		fModifyNodeTransform(transH, nd, scene);
-		delete[] transH.childName;
-
+		else
+		{
+			fModifyNodeTransform(transH, nd, scene);
+			//delete[] transH.childName;
+		}
 		/*
 		If you know there is a child, but you can't find it, 
 		try to find it again at a later time.
