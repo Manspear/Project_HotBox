@@ -31,7 +31,7 @@ struct hRemovedObjectHeader
 {
 	unsigned int nodeType;
 	unsigned int nameLength;
-	const char* name;
+	char* name;
 };
 
 static std::vector<hRemovedObjectHeader> removedList;

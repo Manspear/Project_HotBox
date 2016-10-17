@@ -39,21 +39,21 @@ void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 
 void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* scene)
 {
-	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)messageData + sizeof(hMainHeader);
-
-	hRemovedObjectHeader temp;
-	temp.nodeType = remoh->nodeType;
-	temp.name = new char[remoh->nameLength + 1];
-	memcpy((char*)temp.name, remoh + sizeof(hRemovedObjectHeader), temp.nameLength);
-	(char)temp.name[remoh->nameLength] = '\0';
+	hRemovedObjectHeader remoh = *(hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
+	//remoh.name = new char[remoh.nameLength + 1];
+	remoh.name = new char[remoh.nameLength + 1];
+	memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
+	(char)remoh.name[remoh.nameLength] = '\0';
+	//memcpy((char*)remoh.name, &remoh + sizeof(hRemovedObjectHeader), remoh.nameLength);
+	//(char)remoh.name[remoh.nameLength] = '\0';
 	
 	//removedList.push_back(temp);
-	gameplay::Node* nd = scene->findNode(temp.name);
+	gameplay::Node* nd = scene->findNode(remoh.name);
 	if (nd != NULL)
 	{
 		scene->removeNode(nd);
 	}
-	delete[] temp.name;
+	delete[] remoh.name;
 }
 
 void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
@@ -291,14 +291,19 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 	gameplay::Node* camNode = scene->findNode(cameraName);
 	gameplay::Quaternion camQuat = cameraHeader.rot;
 
+	camQuat.x = MATH_RAD_TO_DEG(camQuat.x);
+	camQuat.y = MATH_RAD_TO_DEG(camQuat.y);
+	camQuat.z = MATH_RAD_TO_DEG(camQuat.z);
+	camQuat.w = MATH_RAD_TO_DEG(camQuat.w);
+
 	if (camNode != NULL)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
 		cam->setProjectionMatrix(cameraHeader.projMatrix);
 
-		//camNode->setTranslation(cameraHeader.trans);
-		//camNode->setScale(cameraHeader.scale);
-		//camNode->setRotation(camQuat);
+		camNode->setTranslation(cameraHeader.trans);
+		camNode->setScale(cameraHeader.scale);
+		camNode->setRotation(camQuat);
 	}
 
 	else 
@@ -311,9 +316,12 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		camNode->setCamera(cam);
 		scene->setActiveCamera(cam);
 
-		/*camNode->setTranslation(cameraHeader.trans);
+		camNode->setTranslation(cameraHeader.trans);
 		camNode->setScale(cameraHeader.scale);
-		camNode->setRotation(camQuat);*/
+		camNode->setRotation(camQuat);
+
+		/*camNode->setTranslation(gameplay::Vector3(1.f, 0.f, 3.f));
+		camNode->setScale(gameplay::Vector3(1.f, 1.f, 1.f));*/
 
 		scene->addNode(camNode);
 	}
