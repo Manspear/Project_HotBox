@@ -824,6 +824,7 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
     MObject childObj;
 	MObject parentObj;
 
+
 	/*If the transform has a parent, obtain it's name and length.*/
 	if (trans.hasParent(obj))
 	{
@@ -862,25 +863,24 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	{
 		childObj = trans.child(i, &res);
 
-		MFnTransform childTrans(childObj);
-		if (childObj.hasFn(MFn::kTransform))
-		{
-
-			transH.childName = childTrans.name().asChar();
-			transH.childNameLength = childTrans.name().length();
-		}
+		//MFnTransform childTrans(childObj);
+		//if (childObj.hasFn(MFn::kTransform))
+		//{
+		//	transH.childName = childTrans.name().asChar();
+		//	transH.childNameLength = childTrans.name().length();
+		//}
+		//MFnLight lightFn(childObj, &res);
+		//if (res == MStatus::kSuccess)
+		//{
+		//	transH.childName = lightFn.name().asChar();
+		//	transH.childNameLength = lightFn.name().length();
+		//	break;
+		//}
 		MFnMesh meshFn(childObj, &res);
 		if (res == MStatus::kSuccess)
 		{
 			transH.childName = meshFn.name().asChar();
 			transH.childNameLength = meshFn.name().length();
-			break;
-		}
-		MFnLight lightFn(childObj, &res);
-		if (res == MStatus::kSuccess)
-		{
-			transH.childName = lightFn.name().asChar();
-			transH.childNameLength = lightFn.name().length();
 			break;
 		}
 	}
