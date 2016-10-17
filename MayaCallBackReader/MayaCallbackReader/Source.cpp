@@ -445,12 +445,11 @@ void fLoadCamera(M3dView& activeView)
 			MFnTransform fnTransform(camFn.parent(0), &res);
 			if (res == MStatus::kSuccess)
 			{
-				MVector tempTrans = fnTransform.getTranslation(MSpace::kObject, &res);
+				MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
 
 				double camTrans[3];
-				camTrans[0] = -camTrans[0];
-
 				tempTrans.get(camTrans);
+
 				double camScale[3];
 				fnTransform.getScale(camScale);
 				double camQuat[4];
@@ -497,8 +496,6 @@ void fCameraChanged(const MString &str, void* clientData)
 				MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
 
 				double camTrans[3];
-				camTrans[0] = -camTrans[0];
-
 				tempTrans.get(camTrans);
 				double camScale[3];
 				fnTransform.getScale(camScale);
@@ -525,12 +522,12 @@ void fCameraAddCbks(MObject& node, void* clientData)
 
 		if (res == MStatus::kSuccess)
 		{
-			//if (firstActiveCam == true)
-			//{
-			//	/*Load the active camera when plugin is initialized.*/
-			//	fLoadCamera(activeCamView);
-			//	firstActiveCam = false;
-			//}
+			if (firstActiveCam == true)
+			{
+				/*Load the active camera when plugin is initialized.*/
+				fLoadCamera(activeCamView);
+				firstActiveCam = false;
+			}
 
 			/*Collect changes when active camera changes.*/
 			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
