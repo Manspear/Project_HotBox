@@ -260,50 +260,50 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 
 void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-    //if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
-    //{
-    //    MObject obj = plug.node();
-    //    MStatus res;
-    //    if (!plug.isArray())
-    //    {
-    //        if (obj.hasFn(MFn::kTransform))
-    //        {
-    //            MFnTransform fnTra(obj, &res);
+    if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+    {
+        MObject obj = plug.node();
+        MStatus res;
+        if (!plug.isArray())
+        {
+            if (obj.hasFn(MFn::kTransform))
+            {
+                MFnTransform fnTra(obj, &res);
 
-    //            if (res == MStatus::kSuccess)
-    //            {
-    //                MTransformationMatrix transMat = fnTra.transformationMatrix();
+                if (res == MStatus::kSuccess)
+                {
+                    MTransformationMatrix transMat = fnTra.transformationMatrix();
 
-    //                MTransformationMatrix::RotationOrder rotOrder;
+                    MTransformationMatrix::RotationOrder rotOrder;
 					double rot[4];
 					double scale[3];
-				//	MVector tempTrans = transMat.getTranslation(MSpace::kObject);
+					MVector tempTrans = transMat.getTranslation(MSpace::kObject);
 					double trans[3];
 					tempTrans.get(trans); 
 
-					//transMat.getRotation(rot, rotOrder);
+					transMat.getRotation(rot, rotOrder);
 					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kObject);
 
-    //                MFnAttribute fnAtt(plug.attribute(), &res);
-    //                if (res == MStatus::kSuccess)
-    //                {
-    //                   /* MGlobal::displayInfo("Transform node: " + fnTra.name() 
-				//			+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
-				//			+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
-				//			+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);*/
+                    MFnAttribute fnAtt(plug.attribute(), &res);
+                    if (res == MStatus::kSuccess)
+                    {
+                       /* MGlobal::displayInfo("Transform node: " + fnTra.name() 
+							+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
+							+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
+							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);*/
 
-				//		hTransformHeader hTrans;
+						hTransformHeader hTrans;
 
-				//		std::copy(trans, trans + 3, hTrans.trans);
+						std::copy(trans, trans + 3, hTrans.trans);
 						std::copy(rot, rot + 4, hTrans.rot);
-				//		std::copy(scale, scale + 3, hTrans.scale);
+						std::copy(scale, scale + 3, hTrans.scale);
 
-				//		fMakeTransformMessage(obj, hTrans);
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
+						fMakeTransformMessage(obj, hTrans);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)

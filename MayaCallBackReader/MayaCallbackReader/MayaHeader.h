@@ -91,7 +91,6 @@ struct hTransformHeader
 	float trans[3];
     float rot[4];
 	float scale[3];
-	float rot[4];
 };
 
 static std::vector<hTransformHeader> transformList;

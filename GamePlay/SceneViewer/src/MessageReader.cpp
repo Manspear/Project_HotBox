@@ -278,9 +278,9 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
 		cam->setProjectionMatrix(cameraHeader.projMatrix);
 
-		camNode->setTranslation(cameraHeader.trans);
-		camNode->setScale(cameraHeader.scale);
-		camNode->setRotation(camQuat);
+		//camNode->setTranslation(cameraHeader.trans);
+		//camNode->setScale(cameraHeader.scale);
+		//camNode->setRotation(camQuat);
 	}
 
 	else 
@@ -293,9 +293,9 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		camNode->setCamera(cam);
 		scene->setActiveCamera(cam);
 
-		camNode->setTranslation(cameraHeader.trans);
+		/*camNode->setTranslation(cameraHeader.trans);
 		camNode->setScale(cameraHeader.scale);
-		camNode->setRotation(camQuat);
+		camNode->setRotation(camQuat);*/
 
 		scene->addNode(camNode);
 	}
