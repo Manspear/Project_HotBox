@@ -72,6 +72,10 @@ struct hCameraHeader
 	const char* cameraName;
 
 	float projMatrix[16];
+
+	float trans[3];
+	float rot[4];
+	float scale[3];
 };
 
 static std::vector<hCameraHeader> cameraList;
@@ -84,9 +88,10 @@ struct hTransformHeader
 	unsigned int parentNameLength;
 	const char* parentName;
 
-    float trans[3];
+	float trans[3];
     float rot[4];
-    float scale[3];
+	float scale[3];
+	float rot[4];
 };
 
 static std::vector<hTransformHeader> transformList;
