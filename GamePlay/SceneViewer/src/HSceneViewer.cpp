@@ -20,18 +20,6 @@ void HSceneViewer::initialize()
 
 	msgReader = new HMessageReader();
 
-	/*Initialize a default camera to see the mesh, later a camera from Maya will be loaded.*/
-	Camera* camera = Camera::createPerspective(45.f, getAspectRatio(), 1.f, 40.f);
-	Node* cameraNode = _scene->addNode("camera");
-
-	cameraNode->setCamera(camera);
-
-	_scene->setActiveCamera(camera);
-	camera->release();
-
-	cameraNode->translate(0, 1, 5);
-	cameraNode->rotateX(MATH_DEG_TO_RAD(-11.25f));
-
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Node* lightNode = Node::create("pointLightShape1");
 

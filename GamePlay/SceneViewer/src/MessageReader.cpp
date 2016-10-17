@@ -29,26 +29,11 @@ HMessageReader::~HMessageReader()
 void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 {
 	char* msg = new char[maxSize];
-
-	while (messageCount < numMessages)
+	size_t length;
+	if (circBuff.pop(msg, length))
 	{
-		size_t length;
-		//Sleep(delayTime);
-
-		//memcpy from the buffer into msg
-		while (!circBuff.pop(msg, length))
-		{
-			Sleep(1);
-		}
-		/*
-		memcpy from the msg memcpied from the buffer into another message... Sounds redundant.
-		look into it in the future
-		*/
 		fProcessMessage(msg, scene);
-
-		messageCount++;
 	}
-
 	delete[] msg;
 }
 
@@ -201,6 +186,7 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 		mesh->setVertexData(&vertList.vertexList[0], 0, meshHeader.vertexCount);
 
 		gameplay::Model* meshModel = gameplay::Model::create(mesh);
+		mesh->release();
 
 		gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 		
@@ -247,19 +233,42 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 
 void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 {
-
 	/*Read the hCameraHeader from messageData.*/
 	hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
 
-	cameraList.push_back(cameraHeader);
+	char* cameraName = new char[cameraHeader.cameraNameLength + 1];
+	memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
+	cameraName[cameraHeader.cameraNameLength] = '\0';
 
-	cameraList.back().cameraNameLength = cameraHeader.cameraNameLength;
-	/*Maybe unimportant*/
-	//memcpy(&cameraList.back().projMatrix, &cameraHeader.projMatrix, sizeof(float) * 16);
+	gameplay::Node* camNode = scene->findNode(cameraName);
+	gameplay::Quaternion camQuat = cameraHeader.rot;
 
-	cameraList.back().cameraName = new char[cameraHeader.cameraNameLength + 1];
-	memcpy((void*)cameraList.back().cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
-	(char)cameraList.back().cameraName[cameraHeader.cameraNameLength] = '\0';
+	if (camNode != NULL)
+	{
+		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
+		cam->setProjectionMatrix(cameraHeader.projMatrix);
+
+		camNode->setTranslation(cameraHeader.trans);
+		camNode->setScale(cameraHeader.scale);
+		camNode->setRotation(camQuat);
+	}
+
+	else 
+	{
+		camNode = gameplay::Node::create(cameraName);
+
+		gameplay::Camera* cam = gameplay::Camera::createPerspective(0, 0, 0, 0);
+		cam->setProjectionMatrix(cameraHeader.projMatrix);
+
+		camNode->setCamera(cam);
+		scene->setActiveCamera(cam);
+
+		camNode->setTranslation(cameraHeader.trans);
+		camNode->setScale(cameraHeader.scale);
+		camNode->setRotation(camQuat);
+
+		scene->addNode(camNode);
+	}
 }
 
 HMessageReader::sFoundInfo HMessageReader::fFindMesh(const char* mName)
