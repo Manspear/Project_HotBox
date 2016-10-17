@@ -273,10 +273,10 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 	gameplay::Node* camNode = scene->findNode(cameraName);
 	gameplay::Quaternion camQuat = cameraHeader.rot;
 
-	camQuat.x = MATH_RAD_TO_DEG(camQuat.x);
+	/*camQuat.x = MATH_RAD_TO_DEG(-camQuat.x);
 	camQuat.y = MATH_RAD_TO_DEG(camQuat.y);
 	camQuat.z = MATH_RAD_TO_DEG(camQuat.z);
-	camQuat.w = MATH_RAD_TO_DEG(camQuat.w);
+	camQuat.w = MATH_RAD_TO_DEG(camQuat.w);*/
 
 	if (camNode != NULL)
 	{
@@ -284,8 +284,8 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		cam->setProjectionMatrix(cameraHeader.projMatrix);
 
 		camNode->setTranslation(cameraHeader.trans);
-		camNode->setScale(cameraHeader.scale);
 		camNode->setRotation(camQuat);
+		camNode->setScale(cameraHeader.scale);
 	}
 
 	else 
@@ -299,8 +299,8 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		scene->setActiveCamera(cam);
 
 		camNode->setTranslation(cameraHeader.trans);
-		camNode->setScale(cameraHeader.scale);
 		camNode->setRotation(camQuat);
+		camNode->setScale(cameraHeader.scale);
 
 		/*camNode->setTranslation(gameplay::Vector3(1.f, 0.f, 3.f));
 		camNode->setScale(gameplay::Vector3(1.f, 1.f, 1.f));*/

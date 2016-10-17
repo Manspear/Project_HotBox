@@ -434,8 +434,8 @@ void fLoadCamera(M3dView& activeView)
 		{
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
-			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+			/*projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];*/
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
@@ -474,15 +474,15 @@ void fCameraChanged(const MString &str, void* clientData)
 	MDagPath cameraPath;
 
 	if (activeView.getCamera(cameraPath))
-	{
+		{
 		MFnCamera camFn(cameraPath.node(), &res);
 
 		if (res == MStatus::kSuccess)
 		{
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
-			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+			/*projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];*/
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
@@ -506,8 +506,7 @@ void fCameraChanged(const MString &str, void* clientData)
 			}
 		}
 	}
-
-	fMakeCameraMessage(hCam);
+		fMakeCameraMessage(hCam);
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -657,7 +656,8 @@ void fOnNodeCreate(MObject& node, void *clientData)
         }
     }
 
-	if (res != MStatus::kSuccess && nt == eNodeType::meshNode || res != MStatus::kSuccess && nt == eNodeType::transformNode)
+	if (res != MStatus::kSuccess && nt == eNodeType::meshNode || res != MStatus::kSuccess && nt == eNodeType::transformNode
+		|| res != MStatus::kSuccess && nt == eNodeType::cameraNode)
 	{
 		queueList.push(node);
 	}
@@ -750,11 +750,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     hMainHeader mainH;
 
     mainH.meshCount = 1;
-
-    mainH.transformCount = 0;
-	mainH.cameraCount = 0;
-    mainH.lightCount = 0;
-    mainH.materialCount = 0;
 
     hMeshHeader meshH;
     meshH.materialId = 0;
