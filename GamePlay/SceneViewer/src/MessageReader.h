@@ -94,8 +94,8 @@ public:
 	
 private:
 	/*Functions for creating and modifying meshes*/
-	void fCreateNewMeshNode(char* meshName, hMeshVertex& vertList, 
-						    hMeshHeader& meshHeader, gameplay::Node* nd,
+	void fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
+						    hMeshHeader* meshHeader, gameplay::Node* nd,
 							gameplay::Scene* scene);
 	/*
 	Applies its transform to the transform's node, and sets a child if there is one

@@ -338,13 +338,15 @@ void fMeshAddCbks(MObject& node, void* clientData)
 	}
 }
 
-void fLoadCamera(M3dView& activeView)
+void fLoadCamera()
 {
 	hCameraHeader hCam;
 	MStatus res;
 	MFloatMatrix projMatrix;
 	
 	MDagPath cameraPath;
+
+	M3dView activeView = M3dView::active3dView();
 
 	if(activeView.getCamera(cameraPath))
 	{
@@ -389,6 +391,8 @@ void fCameraChanged(const MString &str, void* clientData)
 	MStatus res;
 	MMatrix projMatrix;
 
+	
+
 	M3dView activeView = M3dView::active3dView();
 
 	MDagPath cameraPath;
@@ -403,17 +407,21 @@ void fCameraChanged(const MString &str, void* clientData)
 
 			MMatrix newMat = fnTransform.transformationMatrix();
 
-			if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0)
+			MFloatMatrix projMatrix = camFn.projectionMatrix();
+
+			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+			static MFloatMatrix oldProjMatrix = projMatrix;
+
+			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
+			hCam.cameraName = camFn.name().asChar();
+			hCam.cameraNameLength = camFn.name().length();
+
+			if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0 || memcmp(&projMatrix, &oldProjMatrix, sizeof(MFloatMatrix)) != 0)
 			{
 				oldMat = newMat;
-				MFloatMatrix projMatrix = camFn.projectionMatrix();
-
-				projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-				projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
-
-				memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
-				hCam.cameraName = camFn.name().asChar();
-				hCam.cameraNameLength = camFn.name().length();
+				oldProjMatrix = projMatrix;
 
 				if (res == MStatus::kSuccess)
 				{
@@ -452,7 +460,7 @@ void fCameraAddCbks(MObject& node, void* clientData)
 			if (firstActiveCam == true)
 			{
 				/*Load the active camera when plugin is initialized.*/
-				fLoadCamera(activeCamView);
+				//fLoadCamera(activeCamView);
 				firstActiveCam = false;
 			}
 
@@ -607,7 +615,10 @@ void fOnNodeCreate(MObject& node, void *clientData)
 		{
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
+			{	
+				fLoadCamera();
 				fCameraAddCbks(node, clientData);
+			}
 			break;
 		}
         case(eNodeType::dagNode):
@@ -731,25 +742,25 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     meshH.vertexCount = meshVertices.size();
     
     //Getting the first transform parent found. Will most likely be the direct parent.
-    MObject parObj;
-    for (unsigned int i = 0; i < mesh.parentCount(); i++)
-    {
-        parObj = mesh.parent(i, &res);
-        if (parObj.hasFn(MFn::kTransform))
-        {
-            MFnTransform transFn(parObj);
-            meshH.prntTransName = transFn.name().asChar();
-            meshH.prntTransNameLen = transFn.name().length();
-            break;
-        }
-    }
+    //MObject parObj;
+    //for (unsigned int i = 0; i < mesh.parentCount(); i++)
+    //{
+    //    parObj = mesh.parent(i, &res);
+    //    if (parObj.hasFn(MFn::kTransform))
+    //    {
+    //        MFnTransform transFn(parObj);
+    //        meshH.prntTransName = transFn.name().asChar();
+    //        meshH.prntTransNameLen = transFn.name().length();
+    //        break;
+    //    }
+    //}
     
     /*Now put the mainHeader first, then the meshHeader, then the vertices*/
     size_t mainHMem = sizeof(mainH);
     size_t meshHMem = sizeof(meshH);
     size_t meshVertexMem = sizeof(sBuiltVertex);
 
-    int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + meshH.vertexCount * meshVertexMem;
+    int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.vertexCount * meshVertexMem;
 
     /*
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
@@ -759,8 +770,10 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
+	// Insert \0
+	//*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen) = '\0';
+    //memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
+    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
     producer->runProducer(gCb, (char*)msg, totPackageSize);
 	mtx.unlock();
@@ -774,13 +787,14 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 	size_t camMem = sizeof(hCameraHeader);
 
 	hMainHead.cameraCount = 1;
-
+	gCam.cameraNameLength++;
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
 
 	mtx.lock();
 	memcpy(msg, (void*)&hMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&gCam, camMem);
-	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength);
+	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength-1);
+	*(char*)(msg + mainMem + camMem + gCam.cameraNameLength-1) = '\0';
 
 	producer->runProducer(gCb, (char*)msg, totalSize);
 	mtx.unlock();

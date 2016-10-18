@@ -38,21 +38,21 @@ void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 
 void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* scene)
 {
-	hRemovedObjectHeader remoh = *(hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
+	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
 	//remoh.name = new char[remoh.nameLength + 1];
-	remoh.name = new char[remoh.nameLength + 1];
-	memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
-	(char)remoh.name[remoh.nameLength] = '\0';
+	//remoh.name = new char[remoh.nameLength + 1];
+	//memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
+	//(char)remoh.name[remoh.nameLength] = '\0';
+	remoh->name = (char*)messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader);
 	//memcpy((char*)remoh.name, &remoh + sizeof(hRemovedObjectHeader), remoh.nameLength);
 	//(char)remoh.name[remoh.nameLength] = '\0';
 	
 	//removedList.push_back(temp);
-	gameplay::Node* nd = scene->findNode(remoh.name);
+	gameplay::Node* nd = scene->findNode(remoh->name);
 	if (nd != NULL)
 	{
 		scene->removeNode(nd);
 	}
-	delete[] remoh.name;
 }
 
 void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
@@ -146,40 +146,39 @@ struct sMeshVertices
 void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the meshHeader from messageData.*/
-	hMeshHeader meshHeader = *(hMeshHeader*)(messageData + sizeof(hMainHeader));
-	char* meshName;
-	meshName = new char[meshHeader.meshNameLen + 1];
-	memcpy(meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
-	meshName[meshHeader.meshNameLen] = '\0';
+	hMeshHeader* meshHeader = (hMeshHeader*)(messageData + sizeof(hMainHeader));
+//char* meshName	;
+	//meshName = new char[meshHeader.meshNameLen + 1];
+	//memcpy(meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
+	//meshName[meshHeader.meshNameLen] = '\0';
 
-	char* prntTransName;
-	prntTransName = new char[meshHeader.prntTransNameLen + 1];
-	memcpy(prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
-	prntTransName[meshHeader.prntTransNameLen] = '\0';
+	meshHeader->meshName = messageData + sizeof(hMainHeader) + sizeof(hMeshHeader);
 
-	hMeshVertex vertList;
-	vertList.vertexList.resize(meshHeader.vertexCount);
-	memcpy(&vertList.vertexList[0], messageData + sizeof(hMainHeader) +
-		sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen,
-		meshHeader.vertexCount * sizeof(sBuiltVertex));
+	//hMeshVertex vertList;
+	//vertList.vertexList.resize(meshHeader.vertexCount);
+	//memcpy(&vertList.vertexList[0], messageData + sizeof(hMainHeader) +
+	//	sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen,
+	//	meshHeader.vertexCount * sizeof(sBuiltVertex));
+	hVertexHeader* vtxPtr = (hVertexHeader*)(messageData + sizeof(hMainHeader) +
+							sizeof(hMeshHeader) + meshHeader->meshNameLen);
 
-	gameplay::Node* nd = scene->findNode(meshName);
+	gameplay::Node* nd = scene->findNode(meshHeader->meshName);
 
 	if (nd != NULL)
 	{
 		gameplay::Model* model = static_cast<gameplay::Model*>(nd->getDrawable());
-		model->getMesh()->setVertexData(&vertList.vertexList[0], 0, vertList.vertexList.size());
+		model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->meshNameLen);
 	}
 	else
 	{
-		fCreateNewMeshNode(meshName, vertList, meshHeader, nd, scene);
+		fCreateNewMeshNode(const_cast<char*>(meshHeader->meshName), vtxPtr, meshHeader, nd, scene);
 	}
 	//delete[] meshName;
 	//delete[] prntTransName;
 }
 
-void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList, 
-										hMeshHeader& meshHeader, gameplay::Node* nd, 
+void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList, 
+										hMeshHeader* meshHeader, gameplay::Node* nd, 
 										gameplay::Scene* scene)
 {
 	/*The node is new*/
@@ -192,8 +191,8 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList,
 	};
 	const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
 
-	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader.vertexCount, true);
-	mesh->setVertexData(&vertList.vertexList[0], 0, meshHeader.vertexCount);
+	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader->vertexCount, true);
+	mesh->setVertexData(vertList, 0, meshHeader->vertexCount);
 
 	gameplay::Model* meshModel = gameplay::Model::create(mesh);
 		mesh->release();
@@ -305,38 +304,38 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the hCameraHeader from messageData.*/
-	hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
+	hCameraHeader* cameraHeader = (hCameraHeader*)(messageData + sizeof(hMainHeader));
 
-	char* cameraName = new char[cameraHeader.cameraNameLength + 1];
-	memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
-	cameraName[cameraHeader.cameraNameLength] = '\0';
+	//memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
+	//cameraName[cameraHeader.cameraNameLength] = '\0';
+	cameraHeader->cameraName = messageData + sizeof(hMainHeader) + sizeof(hCameraHeader);
 
-	gameplay::Node* camNode = scene->findNode(cameraName);
-	gameplay::Quaternion camQuat = cameraHeader.rot;
+	gameplay::Node* camNode = scene->findNode(cameraHeader->cameraName);
+	gameplay::Quaternion camQuat = cameraHeader->rot;
 
 	if (camNode != NULL)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
-		cam->setProjectionMatrix(cameraHeader.projMatrix);
+		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
-		camNode->setTranslation(cameraHeader.trans);
+		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
-		camNode->setScale(cameraHeader.scale);
+		camNode->setScale(cameraHeader->scale);
 	}
 
 	else 
 	{
-		camNode = gameplay::Node::create(cameraName);
+		camNode = gameplay::Node::create(cameraHeader->cameraName);
 
 		gameplay::Camera* cam = gameplay::Camera::createPerspective(0, 0, 0, 0);
-		cam->setProjectionMatrix(cameraHeader.projMatrix);
+		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
 		camNode->setCamera(cam);
 		scene->setActiveCamera(cam);
 
-		camNode->setTranslation(cameraHeader.trans);
+		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
-		camNode->setScale(cameraHeader.scale);
+		camNode->setScale(cameraHeader->scale);
 
 		scene->addNode(camNode);
 	}
