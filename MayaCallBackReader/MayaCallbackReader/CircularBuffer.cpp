@@ -1,5 +1,4 @@
 #include "CircularBuffer.h"
-
 void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t buffSize, const int role, const size_t chunkSize, LPCWSTR varBuffBuffName)
 {
 	msgFileMap = CreateFileMapping(
@@ -136,6 +135,7 @@ bool circularBuffer::pop(char * msg, size_t & length)
 			res = procMsg(msg, &length);
 		}
 	}
+
 	mutex1.unlock();
 	return res;
 }
@@ -157,7 +157,7 @@ bool circularBuffer::procMsg(char * msg, size_t * length)
 		*length = readMsg->length - sizeof(sMsgHeader);
 		tempCast += sizeof(sMsgHeader);
 		memcpy(msg, tempCast, *length);
-		printf("%d ", readMsg->id);
+		//printf("%d ", readMsg->id);
 		readMsg->consumerPile--;
 	}
 	if (readMsg->consumerPile == 0)

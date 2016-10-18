@@ -101,7 +101,7 @@ private:
 	Applies its transform to the transform's node, and sets a child if there is one
 	We need to be able to have more than one child in the future.
 	*/
-	void fModifyNodeTransform(hTransformHeader& transH, gameplay::Node* nd, gameplay::Scene* scene);
+	void fModifyNodeTransform(hTransformHeader* transH, gameplay::Node* nd, gameplay::Scene* scene);
 	
 	char* msg;
 };

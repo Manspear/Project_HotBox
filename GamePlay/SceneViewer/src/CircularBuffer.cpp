@@ -1,5 +1,5 @@
 #include "CircularBuffer.h"
-
+#include "../../../MayaCallBackReader/MayaCallbackReader/MayaHeader.h"
 void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t & buffSize, const int& role, const size_t & chunkSize, LPCWSTR varBuffBuffName)
 {
 	msgFileMap = CreateFileMapping(
@@ -80,7 +80,7 @@ void circularBuffer::initCircBuffer(LPCWSTR msgBuffName, const size_t & buffSize
 		varBuff->clientCounter++;
 		while (varBuff->producerExist == false)
 		{
-			printf("waiting\n");
+			//printf("waiting\n");
 			Sleep(300);
 		}
 		varBuff->clientCounter--;
@@ -138,6 +138,7 @@ bool circularBuffer::pop(char * msg, size_t & length)
 			res = procMsg(msg, &length);
 		}
 	}
+
 	mutex1.unlock();
 	return res;
 }
@@ -159,7 +160,7 @@ bool circularBuffer::procMsg(char * msg, size_t * length)
 		*length = readMsg->length - sizeof(sMsgHeader);
 		tempCast += sizeof(sMsgHeader);
 		memcpy(msg, tempCast, *length);
-		printf("%d ", readMsg->id);
+		//printf("pi %d ", readMsg->id);
 		readMsg->consumerPile--;
 	}
 	if (readMsg->consumerPile == 0)
