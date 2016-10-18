@@ -217,7 +217,6 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
    // MGlobal::displayInfo(MString("Clock timer: ") + difftime(meshUpdateTimerCompare, meshUpdateTimer));
 }
 
-void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void* clientData)
 void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
 
@@ -664,8 +663,6 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 	//{
 		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 		{
-			MGlobal::displayInfo("shit");
-			MGlobal::displayInfo(MString("Transtimer: ") + gTransformUpdateTimer + MString(" gDt: ") + gDt30Fps);
 			MObject obj = plug.node();
 			MStatus res;
 			if (!plug.isArray())
@@ -676,7 +673,6 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 					fLoadTransform(obj, true);
 				}
 			}
-			gTransformUpdateTimer = 0;
 		}
 	//}
 }
