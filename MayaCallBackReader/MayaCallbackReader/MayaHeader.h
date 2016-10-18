@@ -12,7 +12,8 @@ enum eNodeType
 	dagNode,
 	pointLightNode,
 	cameraNode,
-	notHandledNode
+	notHandledNode,
+	dependencyNode
 };
 
 /*Put the headers here.*/

@@ -206,11 +206,6 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
     }
 }
 
-void fFindShader(MObject& obj)
-{
-
-}
-
 void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
     /*Limit the number of "updates per second" of this function*/
@@ -220,8 +215,6 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
         {
             MStatus res;
             MObject temp = plug.node();
-
-			/*MDagPath path = MDagPath::getAPathTo(temp, &res);*/
 
             MFnMesh meshFn(temp, &res);
 
@@ -235,21 +228,6 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
                     if (res == MStatus::kSuccess)
                         MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
                 }
-                updateMeshQueue.push(temp);
-
-				/*MObjectArray sets;
-				MObjectArray comps;
-				unsigned int instanceNumber = path.instanceNumber();*/
-
-				/*if (!meshFn.getConnectedSetsAndMembers(instanceNumber, sets, comps, true))
-				{
-					if (sets.length())
-					{
-						MObject set = sets[0];
-						MObject comp = comps[0];
-					}
-				}*/
-
             }
         }
         gMeshUpdateTimer = 0;
@@ -258,7 +236,7 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
    // MGlobal::displayInfo(MString("Clock timer: ") + difftime(meshUpdateTimerCompare, meshUpdateTimer));
 }
 
-void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
+void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void* clientData)
 {
     if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
     {
@@ -309,6 +287,7 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 
 void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
+
 	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet && !plug.isArray() && plug.isElement())
 	{
 		MStatus res;
@@ -389,6 +368,7 @@ void fMeshAddCbks(MObject& node, void* clientData)
         id = MNodeMessage::addAttributeChangedCallback(node, fOnMeshAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
+
         id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
@@ -541,6 +521,148 @@ void fCameraAddCbks(MObject& node, void* clientData)
 	}
 }
 
+MObject fFindShader(MObject& setNode)
+{
+	MFnDependencyNode fnNode(setNode);
+	MPlug shaderPlug = fnNode.findPlug("surfaceShader");
+
+	if (!shaderPlug.isNull())
+	{
+		MPlugArray connectedPlugs;
+
+		shaderPlug.connectedTo(connectedPlugs, true, false);
+
+		if (connectedPlugs.length() != 1)
+		{
+			MGlobal::displayInfo("Error getting the shader...");
+		}
+
+		else
+		{
+			return connectedPlugs[0].node();
+		}
+	}
+
+	return MObject::kNullObj;
+}
+
+void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
+{
+	MStatus res;
+
+	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	{
+		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
+		MObject tempData;
+		float rgb[3];
+
+		if (colorPlug == plug && res == MStatus::kSuccess)
+		{
+			if (res == MStatus::kSuccess)
+			{
+				colorPlug.getValue(tempData);
+				MFnNumericData colorData(tempData);
+
+				colorData.getData(rgb[0], rgb[1], rgb[2]);
+
+				MGlobal::displayInfo(MString("Color: ") +
+					MString("R: ") + rgb[0] + MString(" ") +
+					MString("G: ") + rgb[1] + MString(" ") +
+					MString("B: ") + rgb[2]);
+			}
+		}
+
+		MPlug diffusePlug = MFnDependencyNode(plug.node()).findPlug("diffuse", &res);
+		if (diffusePlug == plug && res == MStatus::kSuccess)
+		{
+			float diffuse;
+			diffusePlug.getValue(diffuse);
+
+			MGlobal::displayInfo(MString("Diffuse: ") +
+				MString("R: ") + diffuse + MString(" ") +
+				MString("G: ") + diffuse + MString(" ") +
+				MString("B: ") + diffuse);
+		}
+
+		MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
+		if (ambientPlug == plug && res == MStatus::kSuccess)
+		{
+			ambientPlug.getValue(tempData);
+			MFnNumericData ambientData(tempData);
+
+			ambientData.getData(rgb[0], rgb[1], rgb[2]);
+
+			MGlobal::displayInfo(MString("Ambient: ") +
+				MString("R: ") + rgb[0] + MString(" ") +
+				MString("G: ") + rgb[1] + MString(" ") +
+				MString("B: ") + rgb[2]);
+		}
+
+		if (plug.node().hasFn(MFn::kPhong) || plug.node().hasFn(MFn::kBlinn))
+		{
+			MPlug specularPlug = MFnDependencyNode(plug.node()).findPlug("specularColor", &res);
+			if (specularPlug == plug && res == MStatus::kSuccess)
+			{
+				specularPlug.getValue(tempData);
+				MFnNumericData specularData(tempData);
+
+				specularData.getData(rgb[0], rgb[1], rgb[2]);
+
+				MGlobal::displayInfo(MString("Specular: ") +
+					MString("R: ") + rgb[0] + MString(" ") +
+					MString("G: ") + rgb[1] + MString(" ") +
+					MString("B: ") + rgb[2]);
+			}
+		}
+
+		/*The material is kLambert, assign zero to specular.*/
+		else if (plug.node().hasFn(MFn::kLambert))
+		{
+			/*Set specular to zero in RGB.*/
+			MGlobal::displayInfo(MString("No specular for kLambert!"));
+		}
+	}
+}
+
+void fLoadMaterial(MObject& node)
+{
+	MStatus res;
+
+	if (node.hasFn(MFn::kMesh))
+	{
+		MDagPath dp = MDagPath::getAPathTo(node);
+
+		MFnMesh fnMesh(dp, &res);
+
+		unsigned int instNum = dp.instanceNumber();
+
+		MObjectArray sets, comps;
+
+		if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
+			MGlobal::displayInfo("FAILED!");
+
+		if (sets.length())
+		{
+			MObject set = sets[0];
+			MObject comp = comps[0];
+
+			MObject shaderNode = fFindShader(set);
+
+			MGlobal::displayInfo(shaderNode.apiTypeStr());
+
+			if (shaderNode != MObject::kNullObj)
+			{
+				MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+				if (res == MStatus::kSuccess)
+				{
+					ids.append(id);
+				}
+			}
+		}
+	}
+
+}
+
 void fDagNodeAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -554,6 +676,12 @@ void fDagNodeAddCbks(MObject& node, void* clientData)
         if (res == MStatus::kSuccess)
             ids.append(id);
     }    
+
+	MFnDependencyNode depFn(node, &res);
+	if (res == MStatus::kSuccess)
+	{
+
+	}
 }
 
 void fLoadTransform(MObject& obj, void* clientData)
@@ -706,7 +834,6 @@ void fOnNodeNameChange(MObject &node, const MString &str, void *clientData)
                 MFnDagNode dagFn(node, &res);
                 if (res == MStatus::kSuccess)
                 {
-                    //MFnDagNode dagFn(node);
                     MGlobal::displayInfo("NEW NAME: New node name: " + dagFn.name() + " Node Type: " + node.apiTypeStr());
                 }
             }
@@ -747,6 +874,8 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     MFnMesh mesh(obj);
 
 	fLoadMesh(mesh, isFromQueue, meshVertices);
+
+	fLoadMaterial(obj);
 
     /*Have this function become awesome*/
     hMainHeader mainH;
@@ -921,6 +1050,51 @@ void fIterateScene()
 			nodeIt.next();
         }
     }
+
+	/*MItDag dependencyNodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
+
+	if (res == MStatus::kSuccess)
+	{
+		while (!dependencyNodeIt.isDone())
+		{
+			MGlobal::displayInfo(dependencyNodeIt.currentItem().apiTypeStr());
+
+			if (dependencyNodeIt.currentItem().hasFn(MFn::kMesh))
+			{
+				MDagPath dp = MDagPath::getAPathTo(dependencyNodeIt.currentItem());
+				
+				MFnMesh fnMesh(dp, &res);
+
+				unsigned int instNum = dp.instanceNumber();
+
+				MObjectArray sets, comps;
+
+				if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
+					MGlobal::displayInfo("FAILED!");
+
+				if (sets.length())
+				{
+					MObject set = sets[0];
+					MObject comp = comps[0];
+
+					MObject shaderNode = fFindShader(set);
+
+					MGlobal::displayInfo(shaderNode.apiTypeStr());
+
+					if (shaderNode != MObject::kNullObj)
+					{
+						MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+						if (res == MStatus::kSuccess)
+						{
+							ids.append(id);
+						}
+					}
+				}
+			}
+
+			dependencyNodeIt.next();
+		}
+	}*/
 }
 
 void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
