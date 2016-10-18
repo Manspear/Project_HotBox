@@ -1,4 +1,5 @@
 #include "HSceneViewer.h"
+
 // Declare our game instance
 HSceneViewer game;
 
@@ -13,8 +14,17 @@ HSceneViewer::~HSceneViewer()
 	delete msgReader;
 }
 
+void InitDosConsole() {
+	AllocConsole();
+	freopen("CONIN$", "rb", stdin);
+	freopen("CONOUT$", "wb", stdout);
+	freopen("CONOUT$", "wb", stderr);
+}
+
 void HSceneViewer::initialize()
 {
+	InitDosConsole();
+
 	/*By default create an empty scene, fill with the nodes we send from Maya.*/
 	_scene = Scene::create();
 
@@ -48,10 +58,20 @@ what happened to that node --> have some bools
 */
 void HSceneViewer::update(float elapsedTime)
 {
+	static float timer = 0;
 	/*Get the information we send from the Maya plugin here.*/
 	HMessageReader::sFoundInfo nfo;
-
+	DebugTimer dtim;
+	dtim.start();
 	msgReader->fRead(msgReader->circBuff, _scene);
+	double lDt;
+	dtim.stop(lDt);
+	//printf("%f\n", lDt);
+	//Have a delay here, I think findNode() lags like hell
+	//if(timer > 30)
+	//	msgReader->fProcessQueues(msgReader->circBuff, _scene);
+	///*Elapsedtime is in milliseconds*/
+	//timer += elapsedTime;
 }
 
 void HSceneViewer::render(float elapsedTime)

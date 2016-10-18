@@ -5,7 +5,7 @@ HMessageReader::HMessageReader()
 	bufferSize = 8 << 20;
 	chunkSize = 256;
 	maxSize = bufferSize / 4;
-
+	msg = new char[maxSize];
 	delayTime = 0;
 
 	numMessages = 1;
@@ -24,36 +24,35 @@ HMessageReader::~HMessageReader()
 	{
 
 	}
+	delete[] msg;
 }
 
 void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 {
-	char* msg = new char[maxSize];
 	size_t length;
 	if (circBuff.pop(msg, length))
 	{
 		fProcessMessage(msg, scene);
 	}
-	delete[] msg;
 }
 
 void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* scene)
 {
-	hRemovedObjectHeader remoh = *(hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
+	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
 	//remoh.name = new char[remoh.nameLength + 1];
-	remoh.name = new char[remoh.nameLength + 1];
-	memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
-	(char)remoh.name[remoh.nameLength] = '\0';
+	//remoh.name = new char[remoh.nameLength + 1];
+	//memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
+	//(char)remoh.name[remoh.nameLength] = '\0';
+	remoh->name = (char*)messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader);
 	//memcpy((char*)remoh.name, &remoh + sizeof(hRemovedObjectHeader), remoh.nameLength);
 	//(char)remoh.name[remoh.nameLength] = '\0';
 	
 	//removedList.push_back(temp);
-	gameplay::Node* nd = scene->findNode(remoh.name);
+	gameplay::Node* nd = scene->findNode(remoh->name);
 	if (nd != NULL)
 	{
 		scene->removeNode(nd);
 	}
-	delete[] remoh.name;
 }
 
 void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
@@ -147,40 +146,39 @@ struct sMeshVertices
 void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the meshHeader from messageData.*/
-	hMeshHeader meshHeader = *(hMeshHeader*)(messageData + sizeof(hMainHeader));
-	char* meshName;
-	meshName = new char[meshHeader.meshNameLen + 1];
-	memcpy(meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
-	meshName[meshHeader.meshNameLen] = '\0';
+	hMeshHeader* meshHeader = (hMeshHeader*)(messageData + sizeof(hMainHeader));
+//char* meshName	;
+	//meshName = new char[meshHeader.meshNameLen + 1];
+	//memcpy(meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
+	//meshName[meshHeader.meshNameLen] = '\0';
 
-	char* prntTransName;
-	prntTransName = new char[meshHeader.prntTransNameLen + 1];
-	memcpy(prntTransName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader) + meshHeader.meshNameLen, meshHeader.prntTransNameLen);
-	prntTransName[meshHeader.prntTransNameLen] = '\0';
+	meshHeader->meshName = messageData + sizeof(hMainHeader) + sizeof(hMeshHeader);
 
-	hMeshVertex vertList;
-	vertList.vertexList.resize(meshHeader.vertexCount);
-	memcpy(&vertList.vertexList[0], messageData + sizeof(hMainHeader) +
-		sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen,
-		meshHeader.vertexCount * sizeof(sBuiltVertex));
+	//hMeshVertex vertList;
+	//vertList.vertexList.resize(meshHeader.vertexCount);
+	//memcpy(&vertList.vertexList[0], messageData + sizeof(hMainHeader) +
+	//	sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen,
+	//	meshHeader.vertexCount * sizeof(sBuiltVertex));
+	hVertexHeader* vtxPtr = (hVertexHeader*)(messageData + sizeof(hMainHeader) +
+							sizeof(hMeshHeader) + meshHeader->meshNameLen);
 
-	gameplay::Node* nd = scene->findNode(meshName);
+	gameplay::Node* nd = scene->findNode(meshHeader->meshName);
 
 	if (nd != NULL)
 	{
 		gameplay::Model* model = static_cast<gameplay::Model*>(nd->getDrawable());
-		model->getMesh()->setVertexData(&vertList.vertexList[0], 0, vertList.vertexList.size());
+		model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->meshNameLen);
 	}
 	else
 	{
-		fCreateNewMeshNode(meshName, vertList, meshHeader, nd, scene);
+		fCreateNewMeshNode(const_cast<char*>(meshHeader->meshName), vtxPtr, meshHeader, nd, scene);
 	}
-	delete[] meshName;
-	delete[] prntTransName;
+	//delete[] meshName;
+	//delete[] prntTransName;
 }
 
-void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList, 
-										hMeshHeader& meshHeader, gameplay::Node* nd, 
+void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList, 
+										hMeshHeader* meshHeader, gameplay::Node* nd, 
 										gameplay::Scene* scene)
 {
 	/*The node is new*/
@@ -193,8 +191,8 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList,
 	};
 	const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
 
-	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader.vertexCount, true);
-	mesh->setVertexData(&vertList.vertexList[0], 0, meshHeader.vertexCount);
+	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader->vertexCount, true);
+	mesh->setVertexData(vertList, 0, meshHeader->vertexCount);
 
 	gameplay::Model* meshModel = gameplay::Model::create(mesh);
 		mesh->release();
@@ -226,17 +224,35 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hMeshVertex& vertList,
 	scene->addNode(nd);
 }
 
-void HMessageReader::fModifyNodeTransform(hTransformHeader& transH, gameplay::Node* nd, gameplay::Scene* scene)
+void HMessageReader::fModifyNodeTransform(hTransformHeader* transH, gameplay::Node* nd, gameplay::Scene* scene)
 {
-	nd->setTranslation(transH.trans[0], transH.trans[1], transH.trans[2]);
-	nd->setRotation(transH.rot[0], transH.rot[1], transH.rot[2], transH.rot[3]);
-	nd->setScale(transH.scale[0], transH.scale[1], transH.scale[2]);
+	nd->setTranslation(transH->trans);
+	nd->setRotation((gameplay::Quaternion)transH->rot);
+	nd->setScale(transH->scale);
+
+	//nd->translate(transH->trans[0], transH->trans[1], transH->trans[2]);
+	//nd->rotate(transH->rot[0], transH->rot[1], transH->rot[2], transH->rot[3]);
+	//nd->scale(transH->scale[0], transH->scale[1], transH->scale[2]);
 	/*This should only be used if you have more than one child*/
 	//if (transH.childNameLength > 0)
 	//{
 	//	gameplay::Node* child = scene->findNode(transH.childName);
 	//	if (child != NULL)
 	//		nd->addChild(child);
+	//}
+}
+
+void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene)
+{
+	//if (tranQ.size() > 0)
+	//{
+	//	gameplay::Node* nd = scene->findNode(tranQ.front().childName + '\0');
+	//	if (nd != NULL)
+	//	{
+	//		fModifyNodeTransform(tranQ.front(), nd, scene);
+	//		//delete[] tranQ.front().childName;
+	//		tranQ.pop();
+	//	}
 	//}
 }
 
@@ -253,23 +269,26 @@ void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
 void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene)
 {
 	/*Fill the transformlist vector for this process.*/
-	hTransformHeader transH = *(hTransformHeader*)(messageData + sizeof(hMainHeader));
-	if (transH.childNameLength > 0)
+	hTransformHeader* transH = (hTransformHeader*)(messageData + sizeof(hMainHeader));
+	transH->childName = (const char*)(messageData + sizeof(hMainHeader) + sizeof(hTransformHeader));
+	printf("Trans: %s\n", transH->childName);
+	if (transH->childNameLength > 0)
 	{
-		transH.childName = new char[transH.childNameLength + 1];
-		memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
-		(char)transH.childName[transH.childNameLength] = '\0';
-		gameplay::Node* nd = scene->findNode(transH.childName);
+		//transH.childName = new char[transH.childNameLength + 1];
+		//memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
+		gameplay::Node* nd = scene->findNode(transH->childName);
 
-		if (nd == NULL)
-		{
-			/*testShit*/
-			int asdf = 123;
-			fProcessCamera(messageData, scene);
-		}
-		fModifyNodeTransform(transH, nd, scene);
-		delete[] transH.childName;
-
+		//if (nd == NULL)
+		//{
+		//	/*Add the translate header to a queue!*/
+		//	tranQ.push(*transH);
+		//}
+		//else
+		//{
+		if(nd)
+			fModifyNodeTransform(transH, nd, scene);
+			//delete[] transH.childName;
+		//}
 		/*
 		If you know there is a child, but you can't find it, 
 		try to find it again at a later time.
@@ -285,38 +304,38 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the hCameraHeader from messageData.*/
-	hCameraHeader cameraHeader = *(hCameraHeader*)(messageData + sizeof(hMainHeader));
+	hCameraHeader* cameraHeader = (hCameraHeader*)(messageData + sizeof(hMainHeader));
 
-	char* cameraName = new char[cameraHeader.cameraNameLength + 1];
-	memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
-	cameraName[cameraHeader.cameraNameLength] = '\0';
+	//memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
+	//cameraName[cameraHeader.cameraNameLength] = '\0';
+	cameraHeader->cameraName = messageData + sizeof(hMainHeader) + sizeof(hCameraHeader);
 
-	gameplay::Node* camNode = scene->findNode(cameraName);
-	gameplay::Quaternion camQuat = cameraHeader.rot;
+	gameplay::Node* camNode = scene->findNode(cameraHeader->cameraName);
+	gameplay::Quaternion camQuat = cameraHeader->rot;
 
 	if (camNode != NULL)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
-		cam->setProjectionMatrix(cameraHeader.projMatrix);
+		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
-		camNode->setTranslation(cameraHeader.trans);
+		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
-		camNode->setScale(cameraHeader.scale);
+		camNode->setScale(cameraHeader->scale);
 	}
 
 	else 
 	{
-		camNode = gameplay::Node::create(cameraName);
+		camNode = gameplay::Node::create(cameraHeader->cameraName);
 
 		gameplay::Camera* cam = gameplay::Camera::createPerspective(0, 0, 0, 0);
-		cam->setProjectionMatrix(cameraHeader.projMatrix);
+		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
 		camNode->setCamera(cam);
 		scene->setActiveCamera(cam);
 
-		camNode->setTranslation(cameraHeader.trans);
+		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
-		camNode->setScale(cameraHeader.scale);
+		camNode->setScale(cameraHeader->scale);
 
 		scene->addNode(camNode);
 	}

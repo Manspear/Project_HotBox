@@ -1,5 +1,5 @@
 #include "Producer.h"
-
+#include "MayaHeader.h"
 Producer::Producer()
 {
 }
@@ -33,7 +33,7 @@ void Producer::makeMessage(char* msg, size_t msgLen)
 	messageID++;
 }
 
-void Producer::runProducer(circularBuffer& buffInst, char* msg, size_t packetSize)
+void Producer::runProducer(circularBuffer* buffInst, char* msg, size_t packetSize)
 {
 	//printf("Producer!\n");
 	//char* msg;
@@ -44,12 +44,19 @@ void Producer::runProducer(circularBuffer& buffInst, char* msg, size_t packetSiz
 	while (messageCount < requestedMessages)
 	{
 		//Sleep(delay);
-		while (!buffInst.push(msg, packetSize))
+		while (!buffInst->push(msg, packetSize))
 		{
 			MGlobal::displayInfo(MString("Push failed"));
 			Sleep(1);
 		}
-
+		//This gives back the name. So: Either we do something wrong in the engine, 
+		//or something happens in the circularbuffer
+		//if (packetSize == (sizeof(hMainHeader) + sizeof(hTransformHeader)))
+		//{
+		//	hTransformHeader popo = *(hTransformHeader*)(msg + sizeof(hMainHeader));
+		//	MGlobal::displayInfo(MString("Childname: ") + popo.childName);
+		//}
+		
 		//printf("%d %s\n", messageCount, msg);
 		messageCount++;
 	}

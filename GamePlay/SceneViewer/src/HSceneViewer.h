@@ -1,4 +1,8 @@
 #include "gameplay.h"
+#include <stdio.h>
+#include "Windows.h"
+#include "Wincon.h"
+#include "hDebugTImer.h"
 #ifndef HSceneViewer_H_
 #define HSceneViewer_H_
 

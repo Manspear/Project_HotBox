@@ -18,13 +18,14 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue);
 void fMakeCameraMessage(hCameraHeader& gCam);
 
 void fTransAddCbks(MObject& node, void* clientData);
-circularBuffer gCb;
-Producer producer;
+circularBuffer* gCb;
+Producer* producer;
 Mutex mtx;
 
 float gClockTime;
 float gClockticks;
 float gMeshUpdateTimer;
+float gTransformUpdateTimer;
 float gDt30Fps;
 
 #define BUFFERSIZE 8<<20
@@ -78,31 +79,9 @@ A way to find selected vertices can be found under MGlobal::something
 
 MCallbackIdArray ids;
 std::queue<MObject> queueList;
-std::queue<MObject> updateMeshQueue;
+//std::queue<MObject> updateMeshQueue;
+//std::queue<MObject> updateTransQueue;
 //std::vector<sMesh> meshList;
-
-void fCamChange(const MString &str, MObject &node, void* clientData)
-{
-	MStatus res;
-
-	MGlobal::displayInfo("BLA!");
-
-	MFnCamera camFn(node, &res);
-
-	if (res == MStatus::kSuccess)
-	{
-		MFloatMatrix transMat = camFn.projectionMatrix();
-
-		float test[16];
-
-		memcpy(test, &transMat, sizeof(MFloatMatrix));
-
-		for (int i = 0; i < 16; i++)
-		{
-			MGlobal::displayInfo(MString() + test[i]);
-		}
-	}
-}
 
 void* HelloWorld::creator() { 
 	return new HelloWorld;
@@ -188,7 +167,7 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
     if (isFromQueue)
     {
-        updateMeshQueue.pop();
+       // updateMeshQueue.pop();
     }
 }
 
@@ -228,6 +207,8 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
                     if (res == MStatus::kSuccess)
                         MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
                 }
+				fMakeMeshMessage(temp, false);
+                //updateMeshQueue.push(temp);
             }
         }
         gMeshUpdateTimer = 0;
@@ -237,54 +218,6 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 }
 
 void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void* clientData)
-{
-    if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
-    {
-        MObject obj = plug.node();
-        MStatus res;
-        if (!plug.isArray())
-        {
-            if (obj.hasFn(MFn::kTransform))
-            {
-                MFnTransform fnTra(obj, &res);
-
-                if (res == MStatus::kSuccess)
-                {
-                    MTransformationMatrix transMat = fnTra.transformationMatrix();
-
-                    MTransformationMatrix::RotationOrder rotOrder;
-					double rot[4];
-					double scale[3];
-					MVector tempTrans = transMat.getTranslation(MSpace::kWorld);
-					double trans[3];
-					tempTrans.get(trans); 
-					//trans[0] = -trans[0];
-					transMat.getRotation(rot, rotOrder);
-					transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kWorld);
-					transMat.getScale(scale, MSpace::kObject);
-
-                    MFnAttribute fnAtt(plug.attribute(), &res);
-                    if (res == MStatus::kSuccess)
-                    {
-                       /* MGlobal::displayInfo("Transform node: " + fnTra.name() 
-							+ " Trans: " + trans[0] + " " + trans[1] + " " + trans[2] 
-							+ " Rot: " + rot[0] + " " + rot[1] + " " + rot[2] 
-							+ " Scale: " + scale[0] + " " + scale[1] + " " + scale[2]);*/
-
-						hTransformHeader hTrans;
-
-						std::copy(trans, trans + 3, hTrans.trans);
-						std::copy(rot, rot + 4, hTrans.rot);
-						std::copy(scale, scale + 3, hTrans.scale);
-
-						fMakeTransformMessage(obj, hTrans);
-                    }
-                }
-            }
-        }
-    }
-}
-
 void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
 
@@ -387,26 +320,15 @@ void fMeshAddCbks(MObject& node, void* clientData)
 	}
 }
 
-void fTransAddCbks(MObject& node, void* clientData)
-{
-	MStatus res;
-	MCallbackId id;
-	MFnTransform transFn(node, &res);
-	if (res == MStatus::kSuccess)
-		id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
-	if (res == MStatus::kSuccess)
-	{
-		ids.append(id);
-	}
-}
-
-void fLoadCamera(M3dView& activeView)
+void fLoadCamera()
 {
 	hCameraHeader hCam;
 	MStatus res;
 	MFloatMatrix projMatrix;
 	
 	MDagPath cameraPath;
+
+	M3dView activeView = M3dView::active3dView();
 
 	if(activeView.getCamera(cameraPath))
 	{
@@ -447,48 +369,64 @@ void fLoadCamera(M3dView& activeView)
 
 void fCameraChanged(const MString &str, void* clientData)
 {
+	static MMatrix oldMat;
 	hCameraHeader hCam;
 	MStatus res;
 	MMatrix projMatrix;
+
+	
 
 	M3dView activeView = M3dView::active3dView();
 
 	MDagPath cameraPath;
 
 	if (activeView.getCamera(cameraPath))
-		{
+	{
 		MFnCamera camFn(cameraPath.node(), &res);
 
 		if (res == MStatus::kSuccess)
 		{
+			MFnTransform fnTransform(camFn.parent(0), &res);
+
+			MMatrix newMat = fnTransform.transformationMatrix();
+
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
 			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
 			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
 
+			static MFloatMatrix oldProjMatrix = projMatrix;
+
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
 			hCam.cameraNameLength = camFn.name().length();
 
-			MFnTransform fnTransform(camFn.parent(0), &res);
-			if (res == MStatus::kSuccess)
+			if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0 || memcmp(&projMatrix, &oldProjMatrix, sizeof(MFloatMatrix)) != 0)
 			{
-				MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
+				oldMat = newMat;
+				oldProjMatrix = projMatrix;
 
-				double camTrans[3];
-				tempTrans.get(camTrans);
-				double camScale[3];
-				fnTransform.getScale(camScale);
-				double camQuat[4];
-				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kTransform);
+				if (res == MStatus::kSuccess)
+				{
+					MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
 
-				std::copy(camTrans, camTrans + 3, hCam.trans);
-				std::copy(camScale, camScale + 3, hCam.scale);
-				std::copy(camQuat, camQuat + 4, hCam.rot);
+					double camTrans[3];
+					tempTrans.get(camTrans);
+					double camScale[3];
+					fnTransform.getScale(camScale);
+					double camQuat[4];
+					fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kTransform);
+
+					std::copy(camTrans, camTrans + 3, hCam.trans);
+					std::copy(camScale, camScale + 3, hCam.scale);
+					std::copy(camQuat, camQuat + 4, hCam.rot);
+				}
+
+				fMakeCameraMessage(hCam);
 			}
-		}
+		}	
 	}
-		fMakeCameraMessage(hCam);
+		
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -505,7 +443,7 @@ void fCameraAddCbks(MObject& node, void* clientData)
 			if (firstActiveCam == true)
 			{
 				/*Load the active camera when plugin is initialized.*/
-				fLoadCamera(activeCamView);
+				//fLoadCamera(activeCamView);
 				firstActiveCam = false;
 			}
 
@@ -684,38 +622,76 @@ void fDagNodeAddCbks(MObject& node, void* clientData)
 	}
 }
 
-void fLoadTransform(MObject& obj, void* clientData)
+void fLoadTransform(MObject& obj, bool isFromQueue)
 {
 	MStatus res;
+	MFnTransform fnTra(obj, &res);
 
-	/*if (obj.hasFn(MFn::kTransform))
+	if (res == MStatus::kSuccess)
 	{
-		MFnTransform fnTra(obj, &res);
+		MTransformationMatrix transMat = fnTra.transformationMatrix();
 
-		if (res == MStatus::kSuccess)
+		MTransformationMatrix::RotationOrder rotOrder;
+		double rot[4];
+		double scale[3];
+		MVector tempTrans = transMat.getTranslation(MSpace::kWorld);
+		double trans[3];
+		tempTrans.get(trans);
+		transMat.getRotation(rot, rotOrder);
+		transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kWorld);
+		transMat.getScale(scale, MSpace::kObject);
+
+		hTransformHeader hTrans;
+
+		std::copy(trans, trans + 3, hTrans.trans);
+		std::copy(rot, rot + 4, hTrans.rot);
+		std::copy(scale, scale + 3, hTrans.scale);
+
+		fMakeTransformMessage(obj, hTrans);
+	}
+
+	if (isFromQueue == true)
+	{
+
+		}
+			//updateTransQueue.pop();
+}
+
+void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
+{
+	
+	//if (gTransformUpdateTimer > gDt30Fps)
+	//{
+		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 		{
-			MTransformationMatrix transMat = fnTra.transformationMatrix();
-
-			MTransformationMatrix::RotationOrder rotOrder;
-			double rot[3];
-			double scale[3];
-			MVector tempTrans = transMat.getTranslation(MSpace::kObject);
-			double trans[3];
-			tempTrans.get(trans);
-
-			transMat.getRotation(rot, rotOrder);
-			transMat.getScale(scale, MSpace::kObject);
-
-			hTransformHeader hTrans;
-
-			std::copy(trans, trans + 3, hTrans.trans);
-			std::copy(rot, rot + 3, hTrans.rot);
-			std::copy(scale, scale + 3, hTrans.scale);
-
-			fMakeTransformMessage(obj, hTrans);
-
+			MGlobal::displayInfo("shit");
+			MGlobal::displayInfo(MString("Transtimer: ") + gTransformUpdateTimer + MString(" gDt: ") + gDt30Fps);
+			MObject obj = plug.node();
+			MStatus res;
+			if (!plug.isArray())
+			{
+				if (obj.hasFn(MFn::kTransform))
+				{
+					//updateTransQueue.push(obj);
+					fLoadTransform(obj, true);
+				}
 			}
-		}*/
+			gTransformUpdateTimer = 0;
+		}
+	//}
+}
+
+void fTransAddCbks(MObject& node, void* clientData)
+{
+	MStatus res;
+	MCallbackId id;
+	MFnTransform transFn(node, &res);
+	if (res == MStatus::kSuccess)
+		id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
+	if (res == MStatus::kSuccess)
+	{
+		ids.append(id);
+	}
 }
 
 void fOnNodeCreate(MObject& node, void *clientData)
@@ -758,7 +734,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
         }
         case(eNodeType::transformNode):
         {
-            MFnTransform transFn(node, &res);
+			MFnTransform transFn(node, &res);
 			if (res == MStatus::kSuccess)
 			{
 				fLoadTransform(node, clientData);
@@ -770,7 +746,10 @@ void fOnNodeCreate(MObject& node, void *clientData)
 		{
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
+			{	
+				fLoadCamera();
 				fCameraAddCbks(node, clientData);
+			}
 			break;
 		}
         case(eNodeType::dagNode):
@@ -795,10 +774,9 @@ void fOnNodeCreate(MObject& node, void *clientData)
 
     if (clientData != NULL)
     {
-        if (*(bool*)clientData == true && res == MStatus::kSuccess)
+        if (*(int*)clientData == 666 && res == MStatus::kSuccess)
         {
             queueList.pop();
-            delete clientData;
         }
     }
 }
@@ -850,18 +828,25 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
     gDt30Fps = gClockTime - oldTime;
 
     gMeshUpdateTimer += gDt30Fps;
+	gTransformUpdateTimer += gDt30Fps;
 
     if (queueList.size() > 0)
     {
         MGlobal::displayInfo("TIME");
-        bool* isRepeat = new bool(true);
-        fOnNodeCreate(queueList.front(), isRepeat);
+		int isRepeat = 666;
+        fOnNodeCreate(queueList.front(), &isRepeat);
     }
-    if (updateMeshQueue.size() > 0)
-    {
-        //fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
-		fMakeMeshMessage(updateMeshQueue.front(), true);
-    }
+ //   if (updateMeshQueue.size() > 0)
+ //   {
+ //       //fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
+	//	fMakeMeshMessage(updateMeshQueue.front(), true);
+ //   }
+	////MGlobal::displayInfo(MString("Aids ") + gTransformUpdateTimer);
+	//if (updateTransQueue.size() > 0)
+	//{
+	//	
+	//	fLoadTransform(updateTransQueue.front(), true);
+	//}
     //MGlobal::displayInfo(MString("MeshQueue LENGTH: ") + updateMeshQueue.size());
 }
 
@@ -889,25 +874,25 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     meshH.vertexCount = meshVertices.size();
     
     //Getting the first transform parent found. Will most likely be the direct parent.
-    MObject parObj;
-    for (unsigned int i = 0; i < mesh.parentCount(); i++)
-    {
-        parObj = mesh.parent(i, &res);
-        if (parObj.hasFn(MFn::kTransform))
-        {
-            MFnTransform transFn(parObj);
-            meshH.prntTransName = transFn.name().asChar();
-            meshH.prntTransNameLen = transFn.name().length();
-            break;
-        }
-    }
+    //MObject parObj;
+    //for (unsigned int i = 0; i < mesh.parentCount(); i++)
+    //{
+    //    parObj = mesh.parent(i, &res);
+    //    if (parObj.hasFn(MFn::kTransform))
+    //    {
+    //        MFnTransform transFn(parObj);
+    //        meshH.prntTransName = transFn.name().asChar();
+    //        meshH.prntTransNameLen = transFn.name().length();
+    //        break;
+    //    }
+    //}
     
     /*Now put the mainHeader first, then the meshHeader, then the vertices*/
     size_t mainHMem = sizeof(mainH);
     size_t meshHMem = sizeof(meshH);
     size_t meshVertexMem = sizeof(sBuiltVertex);
 
-    int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen + meshH.vertexCount * meshVertexMem;
+    int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.vertexCount * meshVertexMem;
 
     /*
     In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
@@ -917,29 +902,33 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
-    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen + meshH.prntTransNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
+	// Insert \0
+	//*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen) = '\0';
+    //memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
+    memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
-    producer.runProducer(gCb, (char*)msg, totPackageSize);
+    producer->runProducer(gCb, (char*)msg, totPackageSize);
 	mtx.unlock();
 }
 
 void fMakeCameraMessage(hCameraHeader& gCam)
 {
+	MGlobal::displayInfo("CameraMsg!");
 	hMainHeader hMainHead;
 	size_t mainMem = sizeof(hMainHead);
 	size_t camMem = sizeof(hCameraHeader);
 
 	hMainHead.cameraCount = 1;
-
+	gCam.cameraNameLength++;
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
 
 	mtx.lock();
 	memcpy(msg, (void*)&hMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&gCam, camMem);
-	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength);
+	memcpy(msg + mainMem + camMem, (void*)gCam.cameraName, gCam.cameraNameLength-1);
+	*(char*)(msg + mainMem + camMem + gCam.cameraNameLength-1) = '\0';
 
-	producer.runProducer(gCb, (char*)msg, totalSize);
+	producer->runProducer(gCb, (char*)msg, totalSize);
 	mtx.unlock();
 }
 
@@ -947,84 +936,47 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 { /*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
     MStatus res;
     MFnTransform trans(obj);
-    MObject childObj;
+	
 	//MObject parentObj;
 	hMainHeader mainH;
 	mainH.transformCount = 1;
 	bool foundChild = false;
-	/*If the transform has a parent, obtain it's name and length.*/
-	//if (trans.hasParent(obj))
-	//{
-	//	/*Getting the first parent for mesh, camera and light.*/
-	//	for (unsigned int i = 0; i < trans.parentCount(); i++)
-	//	{
-	//		parentObj = trans.parent(i, &res);
-	//		if (parentObj.hasFn(MFn::kTransform))
-	//		{
-	//			MFnMesh meshFn(childObj, &res);
-	//			if (res == MStatus::kSuccess)
-	//			{
-	//				transH.parentName = meshFn.name().asChar();
-	//				transH.parentNameLength = meshFn.name().length();
-	//				break;
-	//			}
-	//			MFnLight lightFn(childObj, &res);
-	//			if (res == MStatus::kSuccess)
-	//			{
-	//				transH.parentName = meshFn.name().asChar();
-	//				transH.parentNameLength = meshFn.name().length();
-	//				break;
-	//			}
-	//		}
-	//	}
-	//}
-	///*If there are no parents of this transform, set default values.*/
-	//else
-	//{
-	//	transH.parentName = "1337";
-	//	transH.parentNameLength = 0;
-	//}
-
+	
+	MObject childObj;
 	/*Getting the first child for mesh, camera and light.*/
 	for (unsigned int i = 0; i < trans.childCount(); i++)
 	{
 		childObj = trans.child(i, &res);
 
-		//MFnTransform childTrans(childObj);
-		//if (childObj.hasFn(MFn::kTransform))
-		//{
-		//	transH.childName = childTrans.name().asChar();
-		//	transH.childNameLength = childTrans.name().length();
-		//}
-		//MFnLight lightFn(childObj, &res);
-		//if (res == MStatus::kSuccess)
-		//{
-		//	transH.childName = lightFn.name().asChar();
-		//	transH.childNameLength = lightFn.name().length();
-		//	break;
-		//}
 		MFnMesh meshFn(childObj, &res);
 		if (res == MStatus::kSuccess)
 		{
+			/*Can you copy pointers to maya memory?*/
 			transH.childName = meshFn.name().asChar();
-			transH.childNameLength = meshFn.name().length();
+			transH.childNameLength = meshFn.name().length() + 1;
+
 			foundChild = true;
 			break;
 		}
 	}
+	
 	if (foundChild)
 	{
 		mtx.lock();
 		memcpy(msg, &mainH, sizeof(hMainHeader));
 		memcpy(msg + sizeof(hMainHeader), &transH, sizeof(hTransformHeader));
-		memcpy(msg + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childName, transH.childNameLength);
-		int totPacketSize = sizeof(hMainHeader) + sizeof(hTransformHeader) + transH.childNameLength;
-		producer.runProducer(
+		//Copying the name to the shared memory
+		memcpy(msg + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childName, transH.childNameLength-1);
+		//Making the name null-terminated
+		*(char*)(msg + sizeof(hMainHeader) + sizeof(hTransformHeader) + transH.childNameLength - 1) = '\0';
+		producer->runProducer(
 			gCb,
 			msg,
 			sizeof(hMainHeader) +
 			sizeof(hTransformHeader) +
-			transH.childNameLength);
+			transH.childNameLength
+		);
+		MGlobal::displayInfo("Trans message made");
 		mtx.unlock();
 	}
 }
@@ -1044,9 +996,17 @@ void fIterateScene()
 
     if (res == MStatus::kSuccess)
     {
+		int aids = 1337;
         while (!nodeIt.isDone())
         {
-			fOnNodeCreate(nodeIt.currentItem(), NULL);
+			/*
+			If this function is called by iterateScene, 
+			save all transforms in a queue that you 
+			loop through after this node iteration is done. 
+			That way all of the possible children
+			(except transforms) are present in the scene.
+			*/
+			fOnNodeCreate(nodeIt.currentItem(), &aids);
 			nodeIt.next();
         }
     }
@@ -1162,7 +1122,7 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 	}*/
 	if (res == MStatus::kSuccess)
 	{
-		producer.runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
+		producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
 	}
 	mtx.unlock();
 }
@@ -1269,7 +1229,8 @@ EXPORT MStatus initializePlugin(MObject obj)
 	mtx = Mutex(mtxName);
 	fAddCallbacks();
 
-	gCb.initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
+	gCb = new circularBuffer;
+	gCb->initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
     float oldTime = gClockTime;
     gClockticks = clock();
@@ -1277,12 +1238,13 @@ EXPORT MStatus initializePlugin(MObject obj)
     float dt = gClockTime - oldTime;
 
     gMeshUpdateTimer = 0;
+	gTransformUpdateTimer = 0;
 
 	msg = new char[MAXMSGSIZE];
 
 	int chunkSize = CHUNKSIZE;
 	LPCWSTR varBuffName = TEXT("VarBuffer");
-	producer = Producer(1, chunkSize, varBuffName);
+	producer = new Producer(1, chunkSize, varBuffName);
 
 	fIterateScene();
 	return res;
@@ -1300,6 +1262,8 @@ EXPORT MStatus uninitializePlugin(MObject obj)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
 	MGlobal::displayInfo("Maya plugin unloaded!");
 
+	delete gCb;
+	delete producer;
 	delete[] msg;
 
 	return MS::kSuccess;

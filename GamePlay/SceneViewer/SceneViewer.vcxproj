@@ -70,7 +70,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;GP_USE_GAMEPAD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\..\GamePlay\gameplay\src;..\..\GamePlay\external-deps\include;$(DXSDK_DIR)include;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\GamePlay\gameplay\src;C:\Program Files\Autodesk\Maya2016\include;..\..\GamePlay\external-deps\include;$(DXSDK_DIR)include</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
@@ -78,7 +78,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>OpenGL32.lib;GLU32.lib;gameplay.lib;gameplay-deps.lib;XInput.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\..\GamePlay\external-deps\lib\windows\x86_64\Debug;..\..\GamePlay\gameplay\Debug;$(DXSDK_DIR)Lib\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\Autodesk\Maya2016\lib;..\..\GamePlay\external-deps\lib\windows\x86_64\Debug;..\..\GamePlay\gameplay\Debug;$(DXSDK_DIR)Lib\x64</AdditionalLibraryDirectories>
     </Link>
     <CustomBuildStep>
       <Command>
@@ -186,14 +186,17 @@ xcopy ..\..\GamePlay\gameplay\res\ui res\ui\* /s /y /d</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CircularBuffer.cpp" />
+    <ClCompile Include="src\hDebugTImer.cpp" />
     <ClCompile Include="src\HSceneViewer.cpp" />
     <ClCompile Include="src\MessageReader.cpp" />
     <ClCompile Include="src\Mutex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\MayaCallBackReader\MayaCallbackReader\MayaHeader.h" />
+    <ClInclude Include="Headeroo.h" />
     <ClInclude Include="src\CircularBuffer.h" />
     <ClInclude Include="src\FileMapStructs.h" />
+    <ClInclude Include="src\hDebugTImer.h" />
     <ClInclude Include="src\HSceneViewer.h" />
     <ClInclude Include="src\MessageReader.h" />
     <ClInclude Include="src\Mutex.h" />

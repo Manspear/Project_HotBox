@@ -38,5 +38,5 @@ public:
     Or rather, the pointers need to be global... Right? 
     Or maybe the adress remains in the queue, and the data gotten from 'new' remain too, since no delete was called.
     */
-    void runProducer(circularBuffer& buffInst, char* msg, size_t packetSize);
+    void runProducer(circularBuffer* buffInst, char* msg, size_t packetSize);
 };

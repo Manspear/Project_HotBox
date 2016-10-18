@@ -45,8 +45,6 @@ struct hMeshHeader
     unsigned int meshNameLen;
     const char* meshName;
     unsigned int materialId;
-    unsigned int prntTransNameLen;
-    const char* prntTransName;
 
     unsigned int vertexCount;
 };
