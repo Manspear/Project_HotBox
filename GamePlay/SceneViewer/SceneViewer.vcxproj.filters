@@ -90,6 +90,9 @@
     <ClCompile Include="src\Mutex.cpp">
       <Filter>src\Circular Buffer</Filter>
     </ClCompile>
+    <ClCompile Include="src\hDebugTImer.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\HSceneViewer.h">
@@ -108,6 +111,12 @@
       <Filter>src\Circular Buffer</Filter>
     </ClInclude>
     <ClInclude Include="..\..\MayaCallBackReader\MayaCallbackReader\MayaHeader.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="Headeroo.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\hDebugTImer.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
