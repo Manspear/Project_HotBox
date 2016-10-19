@@ -167,7 +167,7 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 	if (nd != NULL)
 	{
 		gameplay::Model* model = static_cast<gameplay::Model*>(nd->getDrawable());
-		model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->meshNameLen);
+		model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->vertexCount);
 	}
 	else
 	{
