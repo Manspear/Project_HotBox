@@ -242,6 +242,22 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader* transH, gameplay::No
 	//}
 }
 
+void HMessageReader::fProcessTransformQueue(gameplay::Scene* scene)
+{
+	while(transNameQueue.size() > 0)
+	{
+		gameplay::Node* nd = scene->findNode(transNameQueue.front().childName);
+		if (nd)
+		{
+			fModifyNodeTransform(&transNameQueue.front(), nd, scene);
+			delete[] transNameQueue.front().childName;
+			transNameQueue.pop();
+		}
+		else
+			break;
+	}
+}
+
 void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene)
 {
 	//if (tranQ.size() > 0)
@@ -290,6 +306,15 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 		//{
 		if(nd)
 			fModifyNodeTransform(transH, nd, scene);
+		else
+		{
+			/*Find save the name to the "transformqueueList"*/
+			hTransformHeader lh = *transH;
+			lh.childName = new char[transH->childNameLength];
+			memcpy((char*)lh.childName, transH->childName, transH->childNameLength);
+
+			transNameQueue.push(lh);
+		}
 			//delete[] transH.childName;
 		//}
 		/*

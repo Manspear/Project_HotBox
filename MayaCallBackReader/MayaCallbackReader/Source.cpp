@@ -64,25 +64,9 @@ struct sMesh
 
     std::vector<sMeshVertices> vertexList;
 };
-//sAllVertex[36] trueList;
-//sIndex[36] indexList;
-//
-///*Can you perhaps extend the idnex list?*/
-//vertex;
-//normal;
-//UV;
-
-/*
-We can make it so that we only have to rebuild the vertex list once per mesh, no matter the number of vertives moved at once.
-Do this by "unifying" the vertex list update.
-A way to find selected vertices can be found under MGlobal::something
-*/
 
 MCallbackIdArray ids;
-std::queue<MObject> queueList;
-//std::queue<MObject> updateMeshQueue;
-//std::queue<MObject> updateTransQueue;
-//std::vector<sMesh> meshList;
+std::queue<MObject> gObjQueue;
 
 void* HelloWorld::creator() { 
 	return new HelloWorld;
@@ -161,15 +145,6 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
     MFloatArray uArr;
     MFloatArray vArr;
     mesh.getUVs(uArr, vArr, &uvSetNames[0]);
-    //for (int i = 0; i < allVert.size(); i++)
-    //{
-    //    MGlobal::displayInfo(MString("Finished Vertex: Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
-    //}
-
-    if (isFromQueue)
-    {
-       // updateMeshQueue.pop();
-    }
 }
 
 /*
@@ -188,34 +163,29 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
 
 void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-    /*Limit the number of "updates per second" of this function*/
-    if (gMeshUpdateTimer > gDt30Fps)
-    {
-        if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
-        {
-            MStatus res;
-            MObject temp = plug.node();
+	///*Limit the number of "updates per second" of this function*/
+	//if (gMeshUpdateTimer > gDt30Fps)
+	//{
+	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	{
+		MStatus res;
+		MObject temp = plug.node();
 
-            MFnMesh meshFn(temp, &res);
+		MFnMesh meshFn(temp, &res);
 
-            if (res == MStatus::kSuccess)
-            {
-                /*When a mesh point gets changed*/
-                if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
-                {
-                    MPoint aPoint;
-                    res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
-                    if (res == MStatus::kSuccess)
-                        MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
-                }
-				fMakeMeshMessage(temp, false);
-                //updateMeshQueue.push(temp);
-            }
-        }
-        gMeshUpdateTimer = 0;
-    }
-
-   // MGlobal::displayInfo(MString("Clock timer: ") + difftime(meshUpdateTimerCompare, meshUpdateTimer));
+		if (res == MStatus::kSuccess)
+		{
+			/*When a mesh point gets changed*/
+			if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
+			{
+				MPoint aPoint;
+				res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
+				if (res == MStatus::kSuccess)
+					MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
+			}
+			fMakeMeshMessage(temp, false);
+		}
+	}
 }
 
 void fOnNodeAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
@@ -827,19 +797,10 @@ void fLoadTransform(MObject& obj, bool isFromQueue)
 
 		fMakeTransformMessage(obj, hTrans);
 	}
-
-	if (isFromQueue == true)
-	{
-
-		}
-			//updateTransQueue.pop();
 }
 
 void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-	
-	//if (gTransformUpdateTimer > gDt30Fps)
-	//{
 		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 		{
 			MObject obj = plug.node();
@@ -848,12 +809,10 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 			{
 				if (obj.hasFn(MFn::kTransform))
 				{
-					//updateTransQueue.push(obj);
 					fLoadTransform(obj, true);
 				}
 			}
 		}
-	//}
 }
 
 void fTransAddCbks(MObject& node, void* clientData)
@@ -939,19 +898,17 @@ void fOnNodeCreate(MObject& node, void *clientData)
         }
     }
 
-	if (res != MStatus::kSuccess && nt == eNodeType::meshNode || res != MStatus::kSuccess && nt == eNodeType::transformNode
-		|| res != MStatus::kSuccess && nt == eNodeType::cameraNode)
-	{
-		queueList.push(node);
-	}
-	
+	if ((res != MStatus::kSuccess && nt == eNodeType::transformNode) ||
+		(res != MStatus::kSuccess && nt == eNodeType::cameraNode) ||
+		(res != MStatus::kSuccess && nt == eNodeType::meshNode))
+		gObjQueue.push(node);
 
-    if (clientData != NULL)
+    if (clientData)
     {
-        if (*(int*)clientData == 666 && res == MStatus::kSuccess)
-        {
-            queueList.pop();
-        }
+		if (*(int*)clientData == 2)
+		{
+			gObjQueue.pop();
+		}
     }
 }
 
@@ -1004,24 +961,11 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
     gMeshUpdateTimer += gDt30Fps;
 	gTransformUpdateTimer += gDt30Fps;
 
-    if (queueList.size() > 0)
-    {
-        MGlobal::displayInfo("TIME");
-		int isRepeat = 666;
-        fOnNodeCreate(queueList.front(), &isRepeat);
-    }
- //   if (updateMeshQueue.size() > 0)
- //   {
- //       //fLoadMesh(MFnMesh(updateMeshQueue.front()), true);
-	//	fMakeMeshMessage(updateMeshQueue.front(), true);
- //   }
-	////MGlobal::displayInfo(MString("Aids ") + gTransformUpdateTimer);
-	//if (updateTransQueue.size() > 0)
-	//{
-	//	
-	//	fLoadTransform(updateTransQueue.front(), true);
-	//}
-    //MGlobal::displayInfo(MString("MeshQueue LENGTH: ") + updateMeshQueue.size());
+	if (gObjQueue.size() > 0)
+	{
+		int type = 2;
+		fOnNodeCreate(gObjQueue.front(), &type);
+	}
 }
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue)
@@ -1047,20 +991,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     meshH.meshName = mesh.name().asChar();
     meshH.meshNameLen = mesh.name().length() + 1;
     meshH.vertexCount = meshVertices.size();
-    
-    //Getting the first transform parent found. Will most likely be the direct parent.
-    //MObject parObj;
-    //for (unsigned int i = 0; i < mesh.parentCount(); i++)
-    //{
-    //    parObj = mesh.parent(i, &res);
-    //    if (parObj.hasFn(MFn::kTransform))
-    //    {
-    //        MFnTransform transFn(parObj);
-    //        meshH.prntTransName = transFn.name().asChar();
-    //        meshH.prntTransNameLen = transFn.name().length();
-    //        break;
-    //    }
-    //}
     
     /*Now put the mainHeader first, then the meshHeader, then the vertices*/
     size_t mainHMem = sizeof(mainH);
@@ -1115,6 +1045,7 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	//MObject parentObj;
 	hMainHeader mainH;
 	mainH.transformCount = 1;
+	bool hasMeshChild = false;
 	bool foundChild = false;
 	
 	MObject childObj;
@@ -1123,15 +1054,20 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	{
 		childObj = trans.child(i, &res);
 
-		MFnMesh meshFn(childObj, &res);
-		if (res == MStatus::kSuccess)
+		if (childObj.hasFn(MFn::kMesh))
 		{
-			/*Can you copy pointers to maya memory?*/
-			transH.childName = meshFn.name().asChar();
-			transH.childNameLength = meshFn.name().length() + 1;
+			hasMeshChild = true;
+			MFnMesh meshFn(childObj, &res);
+			if (res == MStatus::kSuccess)
+			{
+				/*Can you copy pointers to maya memory?*/
+				transH.childName = meshFn.name().asChar();
+				transH.childNameLength = meshFn.name().length() + 1;
 
-			foundChild = true;
-			break;
+				foundChild = true;
+				break;
+			}
+			MGlobal::displayInfo(MString("ERROR: ") + MString(res.errorString()));
 		}
 	}
 	
@@ -1153,6 +1089,10 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 		);
 		MGlobal::displayInfo("Trans message made");
 		mtx.unlock();
+	}
+	else if(hasMeshChild && !foundChild)
+	{
+		gObjQueue.push(obj);
 	}
 }
 void fMakeLightMessage()
@@ -1211,46 +1151,7 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 			*(char*)(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength - 1) = '\0';
 			MGlobal::displayInfo(MString("Deleted mesh: ") + MString(mesh.name()));
 		}
-	}/*else
-	if (nodeType == eNodeType::transformNode)
-	{
-		MFnTransform trans(node, &res);
-		if (res == MStatus::kSuccess)
-		{
-			roh.nodeType = eNodeType::transformNode;
-			roh.nameLength = std::strlen(trans.name().asChar());
-			memcpy(msg, &mainH, sizeof(hMainHeader));
-			memcpy(msg + sizeof(hMainHeader), trans.name().asChar(), roh.nameLength);
-
-			MGlobal::displayInfo(MString("Deleted transform: ") + MString(trans.name()));
-		}
-	}else
-	if (nodeType == eNodeType::cameraNode)
-	{
-		MFnCamera cam(node, &res);
-		if (res == MStatus::kSuccess)
-		{
-			roh.nodeType = eNodeType::cameraNode;
-			roh.nameLength = std::strlen(cam.name().asChar());
-			memcpy(msg, &mainH, sizeof(hMainHeader));
-			memcpy(msg + sizeof(hMainHeader), cam.name().asChar(), roh.nameLength);
-
-			MGlobal::displayInfo(MString("Deleted camera: ") + MString(cam.name()));
-		}
-	}else
-	if (nodeType == eNodeType::pointLightNode)
-	{
-		MFnPointLight pl(node, &res);
-		if (res == MStatus::kSuccess)
-		{
-			roh.nodeType = eNodeType::pointLightNode;
-			roh.nameLength = std::strlen(pl.name().asChar());
-			memcpy(msg, &mainH, sizeof(hMainHeader));
-			memcpy(msg + sizeof(hMainHeader), pl.name().asChar(), roh.nameLength);
-
-			MGlobal::displayInfo(MString("Deleted pointLight: ") + MString(pl.name()));
-		}
-	}*/
+	}
 	if (res == MStatus::kSuccess)
 	{
 		producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
@@ -1400,8 +1301,3 @@ EXPORT MStatus uninitializePlugin(MObject obj)
 
 	return MS::kSuccess;
 }
-
-//int awesomeFunction()
-//{
-//	return 69;
-//}

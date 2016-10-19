@@ -36,7 +36,7 @@ public:
 
 	size_t bufferSize;
 
-	std::queue<hTransformHeader> tranQ;
+	//std::queue<hTransformHeader> tranQ;
 
 	int delayTime;
 
@@ -85,6 +85,7 @@ public:
 	(if necessary)
 	*/
 	void fProcessTransform(char* messageData, gameplay::Scene* scene);
+	void fProcessTransformQueue(gameplay::Scene* scene);
 
 	/*Functions for processing camera messages and getting the new camera.*/
 	void fProcessCamera(char* messageData, gameplay::Scene* scene);
@@ -102,6 +103,10 @@ private:
 	We need to be able to have more than one child in the future.
 	*/
 	void fModifyNodeTransform(hTransformHeader* transH, gameplay::Node* nd, gameplay::Scene* scene);
+
+	
+
+	std::queue<hTransformHeader> transNameQueue;
 	
 	char* msg;
 };
