@@ -7,7 +7,7 @@
 /*e for enum*/
 enum eNodeType
 {
-	meshNode,
+	meshNode = 4,
 	transformNode,
 	dagNode,
 	pointLightNode,

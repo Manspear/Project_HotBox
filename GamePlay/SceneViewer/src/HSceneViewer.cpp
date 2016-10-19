@@ -59,19 +59,12 @@ what happened to that node --> have some bools
 void HSceneViewer::update(float elapsedTime)
 {
 	static float timer = 0;
+	/*Loop through the transformqueue here*/
+	msgReader->fProcessTransformQueue(_scene);
 	/*Get the information we send from the Maya plugin here.*/
-	HMessageReader::sFoundInfo nfo;
-	DebugTimer dtim;
-	dtim.start();
 	msgReader->fRead(msgReader->circBuff, _scene);
-	double lDt;
-	dtim.stop(lDt);
-	//printf("%f\n", lDt);
-	//Have a delay here, I think findNode() lags like hell
-	//if(timer > 30)
-	//	msgReader->fProcessQueues(msgReader->circBuff, _scene);
-	///*Elapsedtime is in milliseconds*/
-	//timer += elapsedTime;
+	
+
 }
 
 void HSceneViewer::render(float elapsedTime)

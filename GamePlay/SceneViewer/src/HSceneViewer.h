@@ -3,6 +3,7 @@
 #include "Windows.h"
 #include "Wincon.h"
 #include "hDebugTImer.h"
+#include <queue>
 #ifndef HSceneViewer_H_
 #define HSceneViewer_H_
 
