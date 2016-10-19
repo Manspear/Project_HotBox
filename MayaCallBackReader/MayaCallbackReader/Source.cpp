@@ -1036,6 +1036,110 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 	producer->runProducer(gCb, (char*)msg, totalSize);
 	mtx.unlock();
 }
+/*
+Make a hChildObjHeader?
+Yes.
+In a maya hierarchy, a transform is always "the hierarchy object"
+that is the actual child. But since gameplay3d doesn't separate between
+transforms and meshes, lights, etc you have to give the transform 
+the same name as the "direct non-transform child" in order for the 
+hierarchy to work in gameplay3d
+
+Should I make a "makeHierarchyMessage" message? It sounds slick.
+So yes.
+*/
+struct hHierarchyHeader
+{
+	const char* parentNodeName;
+	int parentNodeNameLength;
+	int childNodeCount;
+};
+struct hChildNodeNameHeader
+{
+	//Should probably skip having these pointers be part of messages... But they do have some utility on the engine side.
+	const char* objName;
+	int objNameLength;
+};
+/*Saves the names of the object-children of this transform's transform-children*/
+void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::vector<hChildNodeNameHeader>& conh)
+{
+	/*
+	Save the name of the first direct non-transform child of this transform as the child
+	of the "root" transform
+	*/
+	hChildNodeNameHeader lconh;
+	
+	bool hasTransChild = false;
+	MStatus res;
+
+	if (res == MStatus::kSuccess)
+	{
+		MObject childObj;
+		/*
+		Looping through the children, finding a transform, and then looping though it's children
+		in search of a mesh node, and if found adding it to the conh vector.
+		*/
+		for (unsigned int i = 0; i < trans.childCount(); i++)
+		{
+			childObj = trans.child(i, &res);
+			if (res == MStatus::kSuccess)
+			{
+				if (childObj.hasFn(MFn::kTransform))
+				{
+					hasTransChild = true;
+					MFnTransform tranfn(childObj, &res);
+					if (res == MStatus::kSuccess)
+					{
+						MObject childChildObj;
+						for (int j = 0; j < tranfn.childCount(); j++)
+						{
+							childChildObj = tranfn.child(j, &res);
+							if (res == MStatus::kSuccess)
+							{
+								coh.childNodeCount++;
+								if (childChildObj.hasFn(MFn::kMesh))
+								{
+									MFnMesh meshFn(childChildObj, &res);
+									if (res == MStatus::kSuccess)
+									{
+										lconh.objName = meshFn.name().asChar();
+										lconh.objNameLength = strlen(meshFn.name().asChar()) + 1;
+										conh.push_back(lconh);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+/*Uses the obj to make a transFn object that in turn finds and stores the object-children of it's 
+transform children. The obj obviously needs to have a function set for a transform.*/
+void fMakeHierarchyMessage(MObject obj)
+{
+	MStatus res;
+	hMainHeader mainH;
+	mainH.hierarchyCount = 1;
+	MFnTransform trans(obj, &res);
+	hHierarchyHeader coh;
+	coh.parentNodeName = trans.name().asChar();
+	coh.parentNodeNameLength = strlen(trans.name().asChar()) + 1;
+	std::vector<hChildNodeNameHeader> conh;
+
+	fFindChildrenOfTransform(trans, coh, conh);
+
+	memcpy(msg, &mainH, sizeof(hMainHeader));
+	memcpy(msg + sizeof(hMainHeader), &coh, sizeof(hHierarchyHeader));
+	memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader), coh.parentNodeName, coh.parentNodeNameLength - 1);
+	*(char*)(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength - 1) = '\0';
+	
+	for (int i = 0; i < coh.childNodeCount; i++)
+	{
+		//memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength)
+	}
+}
 
 void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 { /*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
@@ -1046,31 +1150,33 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	hMainHeader mainH;
 	mainH.transformCount = 1;
 	bool hasMeshChild = false;
+	bool hasTransChild = false;
 	bool foundChild = false;
 	
 	MObject childObj;
-	/*Getting the first child for mesh, camera and light.*/
+	/*Getting the first child for mesh, camera or light.*/
 	for (unsigned int i = 0; i < trans.childCount(); i++)
 	{
 		childObj = trans.child(i, &res);
-
-		if (childObj.hasFn(MFn::kMesh))
+		if (res == MStatus::kSuccess)
 		{
-			hasMeshChild = true;
-			MFnMesh meshFn(childObj, &res);
-			if (res == MStatus::kSuccess)
+			if (childObj.hasFn(MFn::kMesh))
 			{
-				/*Can you copy pointers to maya memory?*/
-				transH.childName = meshFn.name().asChar();
-				transH.childNameLength = meshFn.name().length() + 1;
+				hasMeshChild = true;
+				MFnMesh meshFn(childObj, &res);
+				if (res == MStatus::kSuccess)
+				{
+					/*Can you copy pointers to maya memory?*/
+					transH.childName = meshFn.name().asChar();
+					transH.childNameLength = meshFn.name().length() + 1;
 
-				foundChild = true;
-				break;
+					foundChild = true;
+					break;
+				}
 			}
-			MGlobal::displayInfo(MString("ERROR: ") + MString(res.errorString()));
 		}
 	}
-	
+
 	if (foundChild)
 	{
 		mtx.lock();
@@ -1095,6 +1201,9 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 		gObjQueue.push(obj);
 	}
 }
+
+
+
 void fMakeLightMessage()
 {
 	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/

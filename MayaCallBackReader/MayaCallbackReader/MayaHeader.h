@@ -26,6 +26,7 @@ struct hMainHeader
     unsigned int transformCount = 0;
     unsigned int lightCount = 0;
     unsigned int materialCount = 0;
+	unsigned int hierarchyCount = 0;
 };
 /*Contains the name, and type of the removed object*/
 struct hRemovedObjectHeader
