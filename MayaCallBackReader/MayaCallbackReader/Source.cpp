@@ -33,6 +33,7 @@ float gDt30Fps;
 #define CHUNKSIZE 256
 
 bool firstActiveCam = true;
+bool firstMaterial = true;
 
 char* msg;
 
@@ -373,8 +374,6 @@ void fCameraChanged(const MString &str, void* clientData)
 	MStatus res;
 	MMatrix projMatrix;
 
-	
-
 	M3dView activeView = M3dView::active3dView();
 
 	MDagPath cameraPath;
@@ -442,7 +441,7 @@ void fCameraAddCbks(MObject& node, void* clientData)
 			if (firstActiveCam == true)
 			{
 				/*Load the active camera when plugin is initialized.*/
-				//fLoadCamera(activeCamView);
+				fLoadCamera();
 				firstActiveCam = false;
 			}
 
@@ -456,6 +455,35 @@ void fCameraAddCbks(MObject& node, void* clientData)
 			}
 		}
 	}
+}
+
+MObject fFindMaterialConnected(MObject node)
+{
+	MStatus res;
+
+	if (node.hasFn(MFn::kMesh))
+	{
+		MDagPath dp = MDagPath::getAPathTo(node);
+
+		MFnMesh fnMesh(dp, &res);
+
+		unsigned int instNum = dp.instanceNumber();
+
+		MObjectArray sets, comps;
+
+		if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
+			MGlobal::displayInfo("FAILED!");
+
+		if (sets.length())
+		{
+			MObject set = sets[0];
+			MObject comp = comps[0];
+
+			return set;
+		}
+	}
+
+	return MObject::kNullObj;
 }
 
 MObject fFindShader(MObject& setNode)
@@ -481,6 +509,33 @@ MObject fFindShader(MObject& setNode)
 	}
 
 	return MObject::kNullObj;
+}
+
+void fMakeMaterialMessage(hMaterialHeader hMaterial)
+{
+	MGlobal::displayInfo("MaterialMsg!");
+
+	hMainHeader HMainHead;
+	size_t mainMem = sizeof(hMainHeader);
+	size_t materialMem = sizeof(hMaterialHeader);
+
+	HMainHead.materialCount = 1;
+
+	hMaterial.materialNameLength++;
+	hMaterial.connectedMeshNameLength++;
+	int totalSize = mainMem + materialMem + hMaterial.materialNameLength + hMaterial.connectedMeshNameLength;
+
+	mtx.lock();
+	memcpy(msg, (void*)&HMainHead, mainMem);
+	memcpy(msg + mainMem, (void*)&hMaterial, materialMem);
+	memcpy(msg + mainMem + materialMem, (void*)hMaterial.materialName, hMaterial.materialNameLength - 1);
+	memcpy(msg + mainMem + materialMem + hMaterial.materialNameLength, (void*)hMaterial.connectedMeshName, hMaterial.connectedMeshNameLength - 1);
+
+	*(char*)(msg + mainMem + materialMem + hMaterial.materialNameLength - 1) = '\0';
+	*(char*)(msg + mainMem + materialMem + hMaterial.materialNameLength + hMaterial.connectedMeshNameLength - 1) = '\0';
+
+	producer->runProducer(gCb, (char*)msg, totalSize);
+	mtx.unlock();
 }
 
 void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
@@ -561,43 +616,167 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 	}
 }
 
-void fLoadMaterial(MObject& node)
+void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
+{
+	MStatus res;
+
+	MObject set = fFindMaterialConnected(plug.node());
+
+	MObject shaderNode = fFindShader(set);
+
+	MGlobal::displayInfo(shaderNode.apiTypeStr());
+			
+	if (shaderNode != MObject::kNullObj)
+	{
+		MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+				
+		if (res == MStatus::kSuccess)
+		{
+			ids.append(id);
+		}
+	}
+}
+
+void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
+{
+	MStatus res;
+
+	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
+	MObject tempData;
+	float rgb[3];
+
+	hMaterialHeader hMaterial;
+
+	hMaterial.materialName = MFnDependencyNode(shaderNode).name().asChar();
+	hMaterial.materialNameLength = MFnDependencyNode(shaderNode).name().length();
+
+	hMaterial.connectedMeshName = mesh.name().asChar();
+	hMaterial.connectedMeshNameLength = mesh.name().length();
+
+	if (res == MStatus::kSuccess)
+	{
+		if (res == MStatus::kSuccess)
+		{
+			colorPlug.getValue(tempData);
+			MFnNumericData colorData(tempData);
+
+			colorData.getData(rgb[0], rgb[1], rgb[2]);
+
+			hMaterial.color[0] = rgb[0];
+			hMaterial.color[1] = rgb[1];
+			hMaterial.color[2] = rgb[2];
+
+			MGlobal::displayInfo(MString("Color: ") +
+				MString("R: ") + rgb[0] + MString(" ") +
+				MString("G: ") + rgb[1] + MString(" ") +
+				MString("B: ") + rgb[2]);
+		}
+	}
+
+	MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
+	if (res == MStatus::kSuccess)
+	{
+		float diffuse;
+		diffusePlug.getValue(diffuse);
+
+		hMaterial.diffuse[0] = diffuse;
+		hMaterial.diffuse[1] = diffuse;
+		hMaterial.diffuse[2] = diffuse;
+		hMaterial.diffuse[3] = diffuse;
+
+		MGlobal::displayInfo(MString("Diffuse: ") +
+			MString("R: ") + diffuse + MString(" ") +
+			MString("G: ") + diffuse + MString(" ") +
+			MString("B: ") + diffuse);
+	}
+
+	MPlug ambientPlug = MFnDependencyNode(shaderNode).findPlug("ambientColor", &res);
+	if (res == MStatus::kSuccess)
+	{
+		ambientPlug.getValue(tempData);
+		MFnNumericData ambientData(tempData);
+
+		ambientData.getData(rgb[0], rgb[1], rgb[2]);
+
+		hMaterial.ambient[0] = rgb[0];
+		hMaterial.ambient[1] = rgb[1];
+		hMaterial.ambient[2] = rgb[2];
+
+		MGlobal::displayInfo(MString("Ambient: ") +
+			MString("R: ") + rgb[0] + MString(" ") +
+			MString("G: ") + rgb[1] + MString(" ") +
+			MString("B: ") + rgb[2]);
+	}
+
+	if (shaderNode.hasFn(MFn::kPhong) || shaderNode.hasFn(MFn::kBlinn))
+	{
+		MPlug specularPlug = MFnDependencyNode(shaderNode).findPlug("specularColor", &res);
+		if (res == MStatus::kSuccess)
+		{
+			specularPlug.getValue(tempData);
+			MFnNumericData specularData(tempData);
+
+			specularData.getData(rgb[0], rgb[1], rgb[2]);
+
+			hMaterial.specular[0] = rgb[0];
+			hMaterial.specular[1] = rgb[1];
+			hMaterial.specular[2] = rgb[2];
+
+			MGlobal::displayInfo(MString("Specular: ") +
+				MString("R: ") + rgb[0] + MString(" ") +
+				MString("G: ") + rgb[1] + MString(" ") +
+				MString("B: ") + rgb[2]);
+		}
+	}
+
+	/*The material is kLambert, assign zero to specular.*/
+	else if (shaderNode.hasFn(MFn::kLambert))
+	{
+		/*Set specular to zero in RGB.*/
+		MGlobal::displayInfo(MString("No specular for kLambert!"));
+
+		hMaterial.specular[0] = 0;
+		hMaterial.specular[1] = 0;
+		hMaterial.specular[2] = 0;
+	}
+
+	fMakeMaterialMessage(hMaterial);
+}
+
+void fGetMeshMaterial(MObject& node)
 {
 	MStatus res;
 
 	if (node.hasFn(MFn::kMesh))
 	{
-		/*MDagPath dp = MDagPath::getAPathTo(node);
-
-		MFnMesh fnMesh(dp, &res);
-
-		unsigned int instNum = dp.instanceNumber();
-
-		MObjectArray sets, comps;
-
-		if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
-			MGlobal::displayInfo("FAILED!");
-
-		if (sets.length())
+		MFnMesh meshFn(node);
+		/*Register callback when a mesh changes material.*/
+		/*MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+		if (res == MStatus::kSuccess)
 		{
-			MObject set = sets[0];
-			MObject comp = comps[0];
+			ids.append(id);
+		}*/
 
-			MObject shaderNode = fFindShader(set);
+		MObject set = fFindMaterialConnected(node);
 
-			MGlobal::displayInfo(shaderNode.apiTypeStr());
+		MObject shaderNode = fFindShader(set);
 
-			if (shaderNode != MObject::kNullObj)
-			{*/
-				MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialAttrChanges, NULL, &res);
-				if (res == MStatus::kSuccess)
-				{
-					ids.append(id);
-				}
-		/*	}
+		if (firstMaterial == true)
+		{
+			fLoadActiveMaterial(shaderNode, meshFn);
+			firstMaterial = false;
+		}
+
+		/*if (shaderNode != MObject::kNullObj)
+		{
+			MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+
+			if (res == MStatus::kSuccess)
+			{
+				ids.append(id);
+			}
 		}*/
 	}
-
 }
 
 void fDagNodeAddCbks(MObject& node, void* clientData)
@@ -638,7 +817,7 @@ void fLoadTransform(MObject& obj, bool isFromQueue)
 		tempTrans.get(trans);
 		transMat.getRotation(rot, rotOrder);
 		transMat.getRotationQuaternion(rot[0], rot[1], rot[2], rot[3], MSpace::kWorld);
-		transMat.getScale(scale, MSpace::kObject);
+		transMat.getScale(scale, MSpace::kWorld);
 
 		hTransformHeader hTrans;
 
@@ -743,7 +922,6 @@ void fOnNodeCreate(MObject& node, void *clientData)
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
 			{	
-				fLoadCamera();
 				fCameraAddCbks(node, clientData);
 			}
 			break;
@@ -857,7 +1035,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
 	fLoadMesh(mesh, isFromQueue, meshVertices);
 
-	fLoadMaterial(obj);
+	fGetMeshMaterial(obj);
 
     /*Have this function become awesome*/
     hMainHeader mainH;

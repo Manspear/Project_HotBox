@@ -106,18 +106,22 @@ static std::vector<hLightHeader> lightList;
 
 struct hMaterialHeader
 {
-    char materialName[256];
+	unsigned int materialNameLength;
+	const char* materialName;
 
-    float reflectivity;
+	unsigned int connectedMeshNameLength;
+	const char* connectedMeshName;
+
+    /*float reflectivity;*/
 
     float ambient[3];
-    float diffuse[3];
+    float diffuse[4];
     float specular[3];
     float color[3];
 
-    char normalMap[256];
+    /*char normalMap[256];
     char diffuseMap[256];
-    char specularMap[256];
+    char specularMap[256];*/
 };
 
 static std::vector<hMaterialHeader> materialList;

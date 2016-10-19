@@ -105,7 +105,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 		for (int i = 0; i < mainHeader.materialCount; i++)
 		{
 			/*Process materialdata.*/
-			fProcessLight(messageData, scene);
+			fProcessMaterial(messageData, scene);
 		}
 	}
 
@@ -258,7 +258,10 @@ void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* s
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 {
-	/*Fill the materiallist vector for this process.*/
+	hMaterialHeader* materialHeader = (hMaterialHeader*)(messageData + sizeof(hMainHeader));
+
+	materialHeader->materialName = messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader);
+	materialHeader->connectedMeshName = messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + materialHeader->materialNameLength;
 }
 
 void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
@@ -306,17 +309,19 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 	/*Read the hCameraHeader from messageData.*/
 	hCameraHeader* cameraHeader = (hCameraHeader*)(messageData + sizeof(hMainHeader));
 
-	//memcpy(cameraName, messageData + sizeof(hMainHeader) + sizeof(hCameraHeader), cameraHeader.cameraNameLength);
-	//cameraName[cameraHeader.cameraNameLength] = '\0';
 	cameraHeader->cameraName = messageData + sizeof(hMainHeader) + sizeof(hCameraHeader);
 
 	gameplay::Node* camNode = scene->findNode(cameraHeader->cameraName);
 	gameplay::Quaternion camQuat = cameraHeader->rot;
 
+	/*If the camera already exists, update it's projection and transformation values.*/
 	if (camNode != NULL)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
 		cam->setProjectionMatrix(cameraHeader->projMatrix);
+
+		/*Set the current existing camera as active.*/
+		scene->setActiveCamera(cam);
 
 		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
