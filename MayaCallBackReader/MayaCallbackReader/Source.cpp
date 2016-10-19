@@ -160,10 +160,10 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
     MFloatArray uArr;
     MFloatArray vArr;
     mesh.getUVs(uArr, vArr, &uvSetNames[0]);
-    for (int i = 0; i < allVert.size(); i++)
-    {
-        MGlobal::displayInfo(MString("Finished Vertex: Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
-    }
+    //for (int i = 0; i < allVert.size(); i++)
+    //{
+    //    MGlobal::displayInfo(MString("Finished Vertex: Pos: ") + allVert[i].pnt.x + MString(" ") + allVert[i].pnt.y + MString(" ") + allVert[i].pnt.z + MString(" UV: ") + allVert[i].uv.u + MString(" ") + allVert[i].uv.v + MString(" Normal: ") + allVert[i].nor.x + MString(" ") + allVert[i].nor.y + MString(" ") + allVert[i].nor.z);
+    //}
 
     if (isFromQueue)
     {
@@ -848,6 +848,7 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue)
 {
+	MGlobal::displayInfo(MString("Mesh message created!"));
     MStatus res;
 
 	std::vector<sBuiltVertex> meshVertices;
@@ -866,7 +867,7 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
     hMeshHeader meshH;
     meshH.materialId = 0;
     meshH.meshName = mesh.name().asChar();
-    meshH.meshNameLen = mesh.name().length();
+    meshH.meshNameLen = mesh.name().length() + 1;
     meshH.vertexCount = meshVertices.size();
     
     //Getting the first transform parent found. Will most likely be the direct parent.
@@ -897,9 +898,9 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 	mtx.lock();
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
-    memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen);
+    memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen-1);
 	// Insert \0
-	//*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen) = '\0';
+	*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen-1) = '\0';
     //memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
@@ -1067,13 +1068,14 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 		if (res == MStatus::kSuccess)
 		{
 			roh.nodeType = eNodeType::meshNode;
-			roh.nameLength = std::strlen(mesh.name().asChar());
+			roh.nameLength = std::strlen(mesh.name().asChar()) + 1;
 			memcpy(msg, &mainH, sizeof(hMainHeader));
 			/*First removed object header*/
 			memcpy(msg + sizeof(hMainHeader), &roh, sizeof(hRemovedObjectHeader));
 			/*Then the name*/
-			memcpy(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), mesh.name().asChar(), roh.nameLength);
-			
+			memcpy(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), mesh.name().asChar(), roh.nameLength-1);
+			/*Then add the '\0'*/
+			*(char*)(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength - 1) = '\0';
 			MGlobal::displayInfo(MString("Deleted mesh: ") + MString(mesh.name()));
 		}
 	}/*else
@@ -1162,6 +1164,7 @@ void fAddCallbacks()
 		MGlobal::displayInfo("nodeAdded success!");
 		ids.append(temp);
 	}
+	
 	temp = MDGMessage::addNodeRemovedCallback(fOnNodeRemoved, kDefaultNodeType, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
