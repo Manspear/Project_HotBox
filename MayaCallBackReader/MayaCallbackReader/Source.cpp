@@ -33,7 +33,6 @@ float gDt30Fps;
 #define CHUNKSIZE 256
 
 bool firstActiveCam = true;
-bool firstMaterial = true;
 
 char* msg;
 
@@ -511,79 +510,108 @@ void fMakeMaterialMessage(hMaterialHeader hMaterial)
 void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
 {
 	MStatus res;
+	MObject tempData;
+	float rgb[3];
 
-	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	hMaterialHeader hMaterial;
+
+	hMaterial.materialName = MFnDependencyNode(plug.node()).name().asChar();
+	hMaterial.materialNameLength = MFnDependencyNode(plug.node()).name().length();
+
+	/**(MObject*)clientData;
+
+	if (clientData != NULL)
 	{
-		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
-		MObject tempData;
-		float rgb[3];
+		int test = 0;
+	}*/
 
-		if (colorPlug == plug && res == MStatus::kSuccess)
+	/*hMaterial.connectedMeshName = plug.name().asChar();
+	hMaterial.connectedMeshNameLength = plug.name().length();*/
+
+	MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
+	if (res == MStatus::kSuccess)
+	{
+		if (res == MStatus::kSuccess)
 		{
-			if (res == MStatus::kSuccess)
-			{
-				colorPlug.getValue(tempData);
-				MFnNumericData colorData(tempData);
+			colorPlug.getValue(tempData);
+			MFnNumericData colorData(tempData);
 
-				colorData.getData(rgb[0], rgb[1], rgb[2]);
+			colorData.getData(rgb[0], rgb[1], rgb[2]);
 
-				MGlobal::displayInfo(MString("Color: ") +
-					MString("R: ") + rgb[0] + MString(" ") +
-					MString("G: ") + rgb[1] + MString(" ") +
-					MString("B: ") + rgb[2]);
-			}
+			hMaterial.diffuseColor[0] = (float)rgb[0];
+			hMaterial.diffuseColor[1] = (float)rgb[1];
+			hMaterial.diffuseColor[2] = (float)rgb[2];
+			hMaterial.diffuseColor[3] = 1.0f;
 		}
 
 		MPlug diffusePlug = MFnDependencyNode(plug.node()).findPlug("diffuse", &res);
-		if (diffusePlug == plug && res == MStatus::kSuccess)
+		if (res == MStatus::kSuccess)
 		{
-			float diffuse;
-			diffusePlug.getValue(diffuse);
+			float diffExp;
+			diffusePlug.getValue(diffExp);
 
-			MGlobal::displayInfo(MString("Diffuse: ") +
-				MString("R: ") + diffuse + MString(" ") +
-				MString("G: ") + diffuse + MString(" ") +
-				MString("B: ") + diffuse);
+			hMaterial.diffuseColor[0] *= (float)diffExp;
+			hMaterial.diffuseColor[1] *= (float)diffExp;
+			hMaterial.diffuseColor[2] *= (float)diffExp;
+
+			MGlobal::displayInfo(MString("Diffuse Color: ") +
+				MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
+				MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
+				MString("B: ") + hMaterial.diffuseColor[2]);
 		}
+	}
 
-		MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
-		if (ambientPlug == plug && res == MStatus::kSuccess)
+	MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
+	if (res == MStatus::kSuccess)
+	{
+		ambientPlug.getValue(tempData);
+		MFnNumericData ambientData(tempData);
+
+		ambientData.getData(rgb[0], rgb[1], rgb[2]);
+
+		hMaterial.ambient[0] = rgb[0];
+		hMaterial.ambient[1] = rgb[1];
+		hMaterial.ambient[2] = rgb[2];
+
+		MGlobal::displayInfo(MString("Ambient: ") +
+			MString("R: ") + rgb[0] + MString(" ") +
+			MString("G: ") + rgb[1] + MString(" ") +
+			MString("B: ") + rgb[2]);
+	}
+
+	if (plug.node().hasFn(MFn::kPhong) || plug.node().hasFn(MFn::kBlinn))
+	{
+		MPlug specularPlug = MFnDependencyNode(plug.node()).findPlug("specularColor", &res);
+		if (res == MStatus::kSuccess)
 		{
-			ambientPlug.getValue(tempData);
-			MFnNumericData ambientData(tempData);
+			specularPlug.getValue(tempData);
+			MFnNumericData specularData(tempData);
 
-			ambientData.getData(rgb[0], rgb[1], rgb[2]);
+			specularData.getData(rgb[0], rgb[1], rgb[2]);
 
-			MGlobal::displayInfo(MString("Ambient: ") +
+			hMaterial.specular[0] = rgb[0];
+			hMaterial.specular[1] = rgb[1];
+			hMaterial.specular[2] = rgb[2];
+
+			MGlobal::displayInfo(MString("Specular: ") +
 				MString("R: ") + rgb[0] + MString(" ") +
 				MString("G: ") + rgb[1] + MString(" ") +
 				MString("B: ") + rgb[2]);
 		}
-
-		if (plug.node().hasFn(MFn::kPhong) || plug.node().hasFn(MFn::kBlinn))
-		{
-			MPlug specularPlug = MFnDependencyNode(plug.node()).findPlug("specularColor", &res);
-			if (specularPlug == plug && res == MStatus::kSuccess)
-			{
-				specularPlug.getValue(tempData);
-				MFnNumericData specularData(tempData);
-
-				specularData.getData(rgb[0], rgb[1], rgb[2]);
-
-				MGlobal::displayInfo(MString("Specular: ") +
-					MString("R: ") + rgb[0] + MString(" ") +
-					MString("G: ") + rgb[1] + MString(" ") +
-					MString("B: ") + rgb[2]);
-			}
-		}
-
-		/*The material is kLambert, assign zero to specular.*/
-		else if (plug.node().hasFn(MFn::kLambert))
-		{
-			/*Set specular to zero in RGB.*/
-			MGlobal::displayInfo(MString("No specular for kLambert!"));
-		}
 	}
+
+	/*The material is kLambert, assign zero to specular.*/
+	else if (plug.node().hasFn(MFn::kLambert))
+	{
+		/*Set specular to zero in RGB.*/
+		MGlobal::displayInfo(MString("No specular for kLambert!"));
+
+		hMaterial.specular[0] = 0;
+		hMaterial.specular[1] = 0;
+		hMaterial.specular[2] = 0;
+	}
+
+	fMakeMaterialMessage(hMaterial);
 }
 
 void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
@@ -598,7 +626,7 @@ void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, 
 			
 	if (shaderNode != MObject::kNullObj)
 	{
-		MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+		MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, clientData, &res);
 				
 		if (res == MStatus::kSuccess)
 		{
@@ -610,8 +638,6 @@ void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, 
 void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 {
 	MStatus res;
-
-	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
 	MObject tempData;
 	float rgb[3];
 
@@ -623,6 +649,7 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 	hMaterial.connectedMeshName = mesh.name().asChar();
 	hMaterial.connectedMeshNameLength = mesh.name().length();
 
+	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
 	if (res == MStatus::kSuccess)
 	{
 		if (res == MStatus::kSuccess)
@@ -632,32 +659,27 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 
 			colorData.getData(rgb[0], rgb[1], rgb[2]);
 
-			hMaterial.color[0] = rgb[0];
-			hMaterial.color[1] = rgb[1];
-			hMaterial.color[2] = rgb[2];
-
-			MGlobal::displayInfo(MString("Color: ") +
-				MString("R: ") + rgb[0] + MString(" ") +
-				MString("G: ") + rgb[1] + MString(" ") +
-				MString("B: ") + rgb[2]);
+			hMaterial.diffuseColor[0] = (float)rgb[0];
+			hMaterial.diffuseColor[1] = (float)rgb[1];
+			hMaterial.diffuseColor[2] = (float)rgb[2];
+			hMaterial.diffuseColor[3] = 1.0f;
 		}
-	}
 
-	MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
-	if (res == MStatus::kSuccess)
-	{
-		float diffuse;
-		diffusePlug.getValue(diffuse);
+		MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
+		if (res == MStatus::kSuccess)
+		{
+			float diffExp;
+			diffusePlug.getValue(diffExp);
 
-		hMaterial.diffuse[0] = diffuse;
-		hMaterial.diffuse[1] = diffuse;
-		hMaterial.diffuse[2] = diffuse;
-		hMaterial.diffuse[3] = diffuse;
+			hMaterial.diffuseColor[0] *= (float)diffExp;
+			hMaterial.diffuseColor[1] *= (float)diffExp;
+			hMaterial.diffuseColor[2] *= (float)diffExp;
 
-		MGlobal::displayInfo(MString("Diffuse: ") +
-			MString("R: ") + diffuse + MString(" ") +
-			MString("G: ") + diffuse + MString(" ") +
-			MString("B: ") + diffuse);
+			MGlobal::displayInfo(MString("Diffuse Color: ") +
+				MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
+				MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
+				MString("B: ") + hMaterial.diffuseColor[2]);
+		}
 	}
 
 	MPlug ambientPlug = MFnDependencyNode(shaderNode).findPlug("ambientColor", &res);
@@ -721,7 +743,7 @@ void fGetMeshMaterial(MObject& node)
 	{
 		MFnMesh meshFn(node);
 		/*Register callback when a mesh changes material.*/
-		/*MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+		/*MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, &node, &res);
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
@@ -731,15 +753,11 @@ void fGetMeshMaterial(MObject& node)
 
 		MObject shaderNode = fFindShader(set);
 
-		if (firstMaterial == true)
-		{
-			fLoadActiveMaterial(shaderNode, meshFn);
-			firstMaterial = false;
-		}
+		fLoadActiveMaterial(shaderNode, meshFn);
 
 		/*if (shaderNode != MObject::kNullObj)
 		{
-			MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+			MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, &node, &res);
 
 			if (res == MStatus::kSuccess)
 			{
@@ -979,8 +997,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
 	fLoadMesh(mesh, isFromQueue, meshVertices);
 
-	fGetMeshMaterial(obj);
-
     /*Have this function become awesome*/
     hMainHeader mainH;
 
@@ -1014,6 +1030,8 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
     producer->runProducer(gCb, (char*)msg, totPackageSize);
 	mtx.unlock();
+
+	fGetMeshMaterial(obj);
 }
 
 void fMakeCameraMessage(hCameraHeader& gCam)

@@ -33,10 +33,10 @@ void HSceneViewer::initialize()
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Node* lightNode = Node::create("pointLightShape1");
 
-	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
+	Light* light = Light::createPoint(Vector3(1.0f, 1.0f, 1.0f), 60);
 
 	lightNode->setLight(light);
-	lightNode->translate(Vector3(0, 0, 0));
+	lightNode->translate(Vector3(0, 5, 0));
 	_scene->addNode(lightNode);
 	lightNode->release();
 	light->release();

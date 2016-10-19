@@ -115,9 +115,8 @@ struct hMaterialHeader
     /*float reflectivity;*/
 
     float ambient[3];
-    float diffuse[4];
+    float diffuseColor[3];
     float specular[3];
-    float color[3];
 
     /*char normalMap[256];
     char diffuseMap[256];
