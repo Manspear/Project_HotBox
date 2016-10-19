@@ -567,7 +567,7 @@ void fLoadMaterial(MObject& node)
 
 	if (node.hasFn(MFn::kMesh))
 	{
-		MDagPath dp = MDagPath::getAPathTo(node);
+		/*MDagPath dp = MDagPath::getAPathTo(node);
 
 		MFnMesh fnMesh(dp, &res);
 
@@ -588,14 +588,14 @@ void fLoadMaterial(MObject& node)
 			MGlobal::displayInfo(shaderNode.apiTypeStr());
 
 			if (shaderNode != MObject::kNullObj)
-			{
-				MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+			{*/
+				MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialAttrChanges, NULL, &res);
 				if (res == MStatus::kSuccess)
 				{
 					ids.append(id);
 				}
-			}
-		}
+		/*	}
+		}*/
 	}
 
 }
@@ -1006,51 +1006,6 @@ void fIterateScene()
 			nodeIt.next();
         }
     }
-
-	/*MItDag dependencyNodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
-
-	if (res == MStatus::kSuccess)
-	{
-		while (!dependencyNodeIt.isDone())
-		{
-			MGlobal::displayInfo(dependencyNodeIt.currentItem().apiTypeStr());
-
-			if (dependencyNodeIt.currentItem().hasFn(MFn::kMesh))
-			{
-				MDagPath dp = MDagPath::getAPathTo(dependencyNodeIt.currentItem());
-				
-				MFnMesh fnMesh(dp, &res);
-
-				unsigned int instNum = dp.instanceNumber();
-
-				MObjectArray sets, comps;
-
-				if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
-					MGlobal::displayInfo("FAILED!");
-
-				if (sets.length())
-				{
-					MObject set = sets[0];
-					MObject comp = comps[0];
-
-					MObject shaderNode = fFindShader(set);
-
-					MGlobal::displayInfo(shaderNode.apiTypeStr());
-
-					if (shaderNode != MObject::kNullObj)
-					{
-						MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
-						if (res == MStatus::kSuccess)
-						{
-							ids.append(id);
-						}
-					}
-				}
-			}
-
-			dependencyNodeIt.next();
-		}
-	}*/
 }
 
 void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
