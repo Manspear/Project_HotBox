@@ -20,10 +20,6 @@ HMessageReader::HMessageReader()
 
 HMessageReader::~HMessageReader()
 {
-	for (int meshIndex = 0; meshIndex < meshList.size(); meshIndex++)
-	{
-
-	}
 	delete[] msg;
 }
 
@@ -115,6 +111,14 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 		{
 			/*Process transformdata*/
 			fProcessTransform(messageData, scene);
+		}
+	}
+
+	if (mainHeader.hierarchyCount > 0)
+	{
+		for (int i = 0; i < mainHeader.hierarchyCount; i++)
+		{
+			fProcessHierarchy(messageData, scene);
 		}
 	}
 }
@@ -258,6 +262,109 @@ void HMessageReader::fProcessTransformQueue(gameplay::Scene* scene)
 	}
 }
 
+
+void HMessageReader::fProcessHierarchy(char * messageData, gameplay::Scene * scene)
+{
+	hHierarchyHeader* hiH = (hHierarchyHeader*)(messageData + sizeof(hMainHeader));
+	hiH->parentNodeName = (char*)(messageData + sizeof(hMainHeader) + sizeof(hHierarchyHeader));
+	gameplay::Node* parnd = scene->findNode(hiH->parentNodeName);
+
+	if(parnd != NULL)
+	{
+		/*Now find the nodes of the children presented in the message*/
+		hChildNodeNameHeader* cnH;
+		int pastSize = 0;
+		for (int i = 0; i < hiH->childNodeCount; i++)
+		{
+			cnH = (hChildNodeNameHeader*)(messageData + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + hiH->parentNodeNameLength + pastSize);
+			cnH->objName = messageData + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + hiH->parentNodeNameLength + sizeof(hChildNodeNameHeader) + pastSize;
+			pastSize += sizeof(hChildNodeNameHeader) + cnH->objNameLength;
+			gameplay::Node* cnd = scene->findNode(cnH->objName);
+			if (cnd != NULL)
+			{
+				parnd->addChild(cnd);
+			}
+			else
+			{
+				/*Do some dynamic memory allocation to temporarily save the names in this application*/
+				fSaveHierarchy(messageData, hiH);
+			}
+		}
+	}
+	else
+	{
+		/*Do some dynamic memory allocation to temporarily save the names in this application*/
+		fSaveHierarchy(messageData, hiH);
+	}
+}
+
+void HMessageReader::fProcessHierarchyQueue(gameplay::Scene* scene)
+{
+	/*
+	Do this once after every fRead
+	gameplay3D must be able to handle
+	the same node being "childed", right?
+	*/
+	if (hierarchyQueue.size() > 0)
+	{
+		bool isSuccess = true;
+		gameplay::Node* parnd = scene->findNode(hierarchyQueue.front().parName);
+		/* Check if the nodes are found in the scene */
+		if (parnd != NULL)
+		{
+			gameplay::Node* cnd;
+			for (int i = 0; i < hierarchyQueue.front().childNames.size(); i++)
+			{
+				char* nono = hierarchyQueue.front().childNames[i];
+				cnd = scene->findNode(hierarchyQueue.front().childNames[i]);
+
+				if (cnd == NULL)
+				{
+					isSuccess = false;
+					break;
+				}
+			}
+		}
+		else
+			isSuccess = false;
+		/* If all of the nodes are found, do the parenting and deletes. */
+		if (isSuccess)
+		{
+			gameplay::Node* cnd;
+			for (int i = 0; i < hierarchyQueue.front().childNames.size(); i++)
+			{
+				cnd = scene->findNode(hierarchyQueue.front().childNames[i]);
+				parnd->addChild(cnd);
+				delete[] hierarchyQueue.front().childNames[i];
+			}
+			delete[] hierarchyQueue.front().parName;
+			hierarchyQueue.pop();
+		}
+	}
+}
+
+void HMessageReader::fSaveHierarchy(char * messageData, hHierarchyHeader* hiH)
+{
+	hChildNodeNameHeader* cnH;
+	sHierarchy lhie;
+
+	lhie.parName = new char[hiH->parentNodeNameLength];
+	memcpy(lhie.parName, hiH->parentNodeName, hiH->parentNodeNameLength);
+	int pastSize = 0;
+	for (int j = 0; j < hiH->childNodeCount; j++)
+	{
+		cnH = (hChildNodeNameHeader*)(messageData + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + hiH->parentNodeNameLength + pastSize);
+		cnH->objName = messageData + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + hiH->parentNodeNameLength + sizeof(hChildNodeNameHeader) + pastSize;
+
+		pastSize += sizeof(hChildNodeNameHeader) + cnH->objNameLength;
+
+		char* cName = new char[cnH->objNameLength];
+		memcpy(cName, cnH->objName, cnH->objNameLength);
+		lhie.childNames.push_back(cName);
+	}
+	hierarchyQueue.push(lhie);
+}
+
 void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene)
 {
 	//if (tranQ.size() > 0)
@@ -370,21 +477,3 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		scene->addNode(camNode);
 	}
 }
-
-HMessageReader::sFoundInfo HMessageReader::fFindMesh(const char* mName)
-{
-	sFoundInfo fi;
-	for (int i = 0; i < meshList.size(); i++)
-	{
-		if (std::strcmp(meshList[i].meshName, mName) == 0)
-		{
-			fi.index = i;
-			fi.msgType = MessageType::eMeshChanged;
-			return fi;
-		}
-	}
-	fi.msgType = MessageType::eNewMesh;
-	return fi;
-}
-
-

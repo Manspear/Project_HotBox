@@ -63,7 +63,7 @@ void HSceneViewer::update(float elapsedTime)
 	msgReader->fProcessTransformQueue(_scene);
 	/*Get the information we send from the Maya plugin here.*/
 	msgReader->fRead(msgReader->circBuff, _scene);
-	
+	msgReader->fProcessHierarchyQueue(_scene);
 
 }
 

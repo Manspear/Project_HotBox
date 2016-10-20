@@ -28,15 +28,7 @@ public:
 		eDefault
 	};
 
-	struct sFoundInfo
-	{
-		MessageType msgType;
-		unsigned int index = UINT_MAX;
-	};
-
 	size_t bufferSize;
-
-	//std::queue<hTransformHeader> tranQ;
 
 	int delayTime;
 
@@ -87,27 +79,42 @@ public:
 	void fProcessTransform(char* messageData, gameplay::Scene* scene);
 	void fProcessTransformQueue(gameplay::Scene* scene);
 
+	/*Functions having to do with hierarchy*/
+	void fProcessHierarchy(char * messageData, gameplay::Scene* scene);
+	void fProcessHierarchyQueue(gameplay::Scene* scene);
+	/*
+	* Only gets called if one of the nodes in the hierarchy cannot be found the the scene.
+	* The saved data is then put through a variant of fProcessHierarchy() that attempts to
+	* find the nodes again.
+	*/
+	void fSaveHierarchy(char * messageData, hHierarchyHeader* hiH);
+
 	/*Functions for processing camera messages and getting the new camera.*/
 	void fProcessCamera(char* messageData, gameplay::Scene* scene);
-
-	/*Functions for finding objects in the scene*/
-	sFoundInfo fFindMesh(const char* mName);
 	
 private:
+	struct sHierarchy
+	{
+		char* parName;
+		std::vector<char*> childNames;
+	};
+
 	/*Functions for creating and modifying meshes*/
 	void fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
 						    hMeshHeader* meshHeader, gameplay::Node* nd,
 							gameplay::Scene* scene);
-	/*
+/*!
 	Applies its transform to the transform's node, and sets a child if there is one
 	We need to be able to have more than one child in the future.
-	*/
+*/
 	void fModifyNodeTransform(hTransformHeader* transH, gameplay::Node* nd, gameplay::Scene* scene);
 
-	
-
 	std::queue<hTransformHeader> transNameQueue;
-	
+	/*
+	The names stored in this queue must be deleted.
+	*/
+	std::queue<sHierarchy> hierarchyQueue;
+
 	char* msg;
 };
 

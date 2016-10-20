@@ -36,11 +36,6 @@ struct hRemovedObjectHeader
 	char* name;
 };
 
-static std::vector<hRemovedObjectHeader> removedList;
-/*
-Maybe it would be more "organized" if a mesh had it's vertices incorporated into itself
-  
-*/
 struct hMeshHeader
 {
     unsigned int meshNameLen;
@@ -49,8 +44,6 @@ struct hMeshHeader
 
     unsigned int vertexCount;
 };
-/*Meshes added in HMessageReader::processMesh()*/
-static std::vector<hMeshHeader> meshList;
 
 struct hVertexHeader
 {
@@ -63,8 +56,6 @@ struct hMeshVertex
 {
     std::vector<hVertexHeader> vertexList;
 };
-/*Vertices added in HMessageReader::processMesh()*/
-static std::vector<hMeshVertex> meshVertexList;
 
 struct hCameraHeader
 {
@@ -77,8 +68,6 @@ struct hCameraHeader
 	float rot[4];
 	float scale[3];
 };
-
-static std::vector<hCameraHeader> cameraList;
 
 struct hTransformHeader
 {
@@ -93,7 +82,18 @@ struct hTransformHeader
 	float scale[3];
 };
 
-static std::vector<hTransformHeader> transformList;
+struct hHierarchyHeader
+{
+	const char* parentNodeName;
+	int parentNodeNameLength;
+	int childNodeCount = 0;
+};
+struct hChildNodeNameHeader
+{
+	//Should probably skip having these pointers be part of messages... But they do have some utility on the engine side.
+	const char* objName;
+	int objNameLength;
+};
 
 struct hLightHeader
 {
@@ -102,8 +102,6 @@ struct hLightHeader
     float intensity;
     float color[3];
 };
-
-static std::vector<hLightHeader> lightList;
 
 struct hMaterialHeader
 {
@@ -124,7 +122,5 @@ struct hMaterialHeader
     char diffuseMap[256];
     char specularMap[256];*/
 };
-
-static std::vector<hMaterialHeader> materialList;
 
 #endif MAYAHEADER_H
