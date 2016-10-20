@@ -84,7 +84,6 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 			/*Process lightdata.*/
 			fProcessLight(messageData, scene);
 		}
-
 	}
 
 	if (mainHeader.cameraCount > 0)
@@ -119,6 +118,21 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 		for (int i = 0; i < mainHeader.hierarchyCount; i++)
 		{
 			fProcessHierarchy(messageData, scene);
+		}
+	}
+
+	if (mainHeader.childRemovedCount > 0)
+	{
+		for (int i = 0; i < mainHeader.childRemovedCount; i++)
+		{
+			fProcessChildChange(messageData, scene, eChangeType::eRemoveChild);
+		}
+	}
+	if (mainHeader.childAddedCount > 0)
+	{
+		for (int i = 0; i < mainHeader.childAddedCount; i++)
+		{
+			fProcessChildChange(messageData, scene, eChangeType::eAddChild);
 		}
 	}
 }
@@ -341,6 +355,38 @@ void HMessageReader::fProcessHierarchyQueue(gameplay::Scene* scene)
 			hierarchyQueue.pop();
 		}
 	}
+}
+
+void HMessageReader::fProcessChildChange(char * messageData, gameplay::Scene* scene, eChangeType tp)
+{
+	hParChildHeader* pc = (hParChildHeader*)(messageData + sizeof(hMainHeader));
+	pc->parentName = messageData + sizeof(hMainHeader) + sizeof(hParChildHeader);
+	pc->childName = messageData + sizeof(hMainHeader) + sizeof(hParChildHeader) + pc->parentNameLength;
+
+	gameplay::Node* parNode = scene->findNode(pc->parentName);
+	gameplay::Node* childNode = scene->findNode(pc->childName);
+
+	if (tp == eChangeType::eRemoveChild)
+	{
+		//parNode->removeChild(childNode);
+		gameplay::Node* firstChild = parNode->getFirstChild();
+		//isEnabledinhirerachy
+		//release
+	/*	gameplay::Node* copy = firstChild->clone();
+		firstChild->suspendTransformChanged();
+*/
+
+		firstChild->unparent(firstChild);
+
+		//parNode->removeChild(childNode);
+		//parNode->addChild(firstChild);
+
+
+	/*	const char* aids = copy->getId();
+		printf("%s", aids);*/
+	}
+	else if (tp == eChangeType::eAddChild)
+		parNode->addChild(childNode);
 }
 
 void HMessageReader::fSaveHierarchy(char * messageData, hHierarchyHeader* hiH)

@@ -28,6 +28,12 @@ public:
 		eDefault
 	};
 
+	enum eChangeType
+	{
+		eRemoveChild,
+		eAddChild
+	};
+
 	size_t bufferSize;
 
 	int delayTime;
@@ -82,6 +88,8 @@ public:
 	/*Functions having to do with hierarchy*/
 	void fProcessHierarchy(char * messageData, gameplay::Scene* scene);
 	void fProcessHierarchyQueue(gameplay::Scene* scene);
+	void fProcessChildChange(char * messageData, gameplay::Scene* scene, eChangeType tp);
+
 	/*
 	* Only gets called if one of the nodes in the hierarchy cannot be found the the scene.
 	* The saved data is then put through a variant of fProcessHierarchy() that attempts to

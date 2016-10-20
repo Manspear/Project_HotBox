@@ -27,6 +27,8 @@ struct hMainHeader
     unsigned int lightCount = 0;
     unsigned int materialCount = 0;
 	unsigned int hierarchyCount = 0;
+	unsigned int childAddedCount = 0;
+	unsigned int childRemovedCount = 0;
 };
 /*Contains the name, and type of the removed object*/
 struct hRemovedObjectHeader
@@ -80,6 +82,14 @@ struct hTransformHeader
 	float trans[3];
     float rot[4];
 	float scale[3];
+};
+
+struct hParChildHeader
+{
+	unsigned int parentNameLength;
+	const char* parentName;
+	unsigned int childNameLength;
+	const char* childName;
 };
 
 struct hHierarchyHeader

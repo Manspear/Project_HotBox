@@ -78,6 +78,130 @@ MStatus HelloWorld::doIt(const MArgList& argList)
 	return MS::kSuccess;
 };
 
+/*Saves the names of the object-children of this transform's transform-children*/
+void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::vector<hChildNodeNameHeader>& conh)
+{
+	/*
+	Save the name of the first direct non-transform child of this transform as the child
+	of the "root" transform
+	*/
+	hChildNodeNameHeader lconh;
+
+	bool hasTransChild = false;
+	MStatus res;
+
+	if (res == MStatus::kSuccess)
+	{
+		MObject childObj;
+		/*
+		Looping through the children, finding a transform, and then looping though it's children
+		in search of a mesh node, and if found adding it to the conh vector.
+		*/
+		for (unsigned int i = 0; i < trans.childCount(); i++)
+		{
+			childObj = trans.child(i, &res);
+			if (res == MStatus::kSuccess)
+			{
+				if (childObj.hasFn(MFn::kTransform))
+				{
+					hasTransChild = true;
+					MFnTransform tranfn(childObj, &res);
+					if (res == MStatus::kSuccess)
+					{
+						MObject childChildObj;
+						for (int j = 0; j < tranfn.childCount(); j++)
+						{
+							childChildObj = tranfn.child(j, &res);
+							if (res == MStatus::kSuccess)
+							{
+								coh.childNodeCount++;
+								if (childChildObj.hasFn(MFn::kMesh))
+								{
+									MFnMesh meshFn(childChildObj, &res);
+									if (res == MStatus::kSuccess)
+									{
+										lconh.objName = meshFn.name().asChar();
+										lconh.objNameLength = strlen(meshFn.name().asChar()) + 1;
+										conh.push_back(lconh);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/*
+Uses the obj to make a transFn object that in turn finds and stores the object-children of it's
+transform children. The obj obviously needs to have a function set for a transform.
+
+Use this function once per transformation node in "onNodeCreate".
+Then use this function in DAG-callbacks.
+The transformation node must be connected to a mesh!
+*/
+void fMakeHierarchyMessage(MObject obj)
+{
+	bool hasMeshFn = false;
+	bool foundMeshName = false;
+	MStatus res;
+	hMainHeader mainH;
+	mainH.hierarchyCount = 1;
+	MFnTransform trans(obj, &res);
+	hHierarchyHeader coh;
+
+	for (int o = 0; o < trans.childCount(); o++)
+	{
+		MObject childObj = trans.child(o);
+		if (childObj.hasFn(MFn::kMesh))
+		{
+			hasMeshFn = true;
+			MFnMesh childMesh(childObj, &res);
+			if (res == MStatus::kSuccess)
+			{
+				coh.parentNodeName = childMesh.name().asChar();
+				coh.parentNodeNameLength = strlen(childMesh.name().asChar()) + 1;
+				foundMeshName = true;
+			}
+		}
+	}
+
+	if (foundMeshName)
+	{
+		std::vector<hChildNodeNameHeader> conh;
+
+		fFindChildrenOfTransform(trans, coh, conh);
+
+		mtx.lock();
+
+		memcpy(msg, &mainH, sizeof(hMainHeader));
+		memcpy(msg + sizeof(hMainHeader), &coh, sizeof(hHierarchyHeader));
+		memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader), coh.parentNodeName, coh.parentNodeNameLength - 1);
+		*(char*)(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength - 1) = '\0';
+		int pastSize = 0;
+		for (int i = 0; i < coh.childNodeCount; i++)
+		{
+			/*Copying te childnameheader into the message, so that we get the name length in the engine*/
+			memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + pastSize, &conh[i], sizeof(hChildNodeNameHeader));
+			/*Copying the name to the spot after the childnameheader*/
+			memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + sizeof(hChildNodeNameHeader) + pastSize, conh[i].objName, conh[i].objNameLength - 1);
+			*(char*)(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + +sizeof(hChildNodeNameHeader) + pastSize + conh[i].objNameLength - 1) = '\0';
+			pastSize += sizeof(hChildNodeNameHeader) + conh[i].objNameLength;
+		}
+		MGlobal::displayInfo("Hierarchy Message Made!");
+		producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + pastSize);
+
+		mtx.unlock();
+	}
+	else if (hasMeshFn && !foundMeshName)
+	{
+		/*Add this hierarchy to the queue...*/
+		gHierarchyQueue.push(obj);
+	}
+}
+
 void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVert)
 {
     MIntArray normalCnts;
@@ -815,6 +939,120 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 			}
 		}
 }
+/*
+Currently, as soon as the hierarchy is changed, I simply send the parent and it's children 
+to the engine, where they're added. I never remove/dislocate a child. So, to make this 
+change as painless as possible, check if you can simply "reset" the parenting of the parent node in the
+engine every time a change is made, and then set it again.
+
+The more "proper" route would be to simply add a new kind of message that sends off
+the parent losing it's child, and the child getting lost.
+This is a very simple header:
+
+struct hChildRemoved
+{
+	int parentNameLength;
+	char* parentName;
+	
+	int childNameLength;
+	char* childName;
+}
+The header for doing the opposite looks exactly the same:
+
+struct hChildAdded
+{
+int parentNameLength;
+char* parentName;
+
+int childNameLength;
+char* childName;
+}
+*/
+void fMakeChildMessage(hMainHeader& mainH, MDagPath& child, MDagPath& parent)
+{
+	MStatus res;
+	hParChildHeader aC;
+
+	MFnTransform childT(child, &res);
+	if (res == MStatus::kSuccess)
+	{
+		MFnTransform parT(parent, &res);
+		if (res == MStatus::kSuccess)
+		{
+			bool foundParName = false;
+			bool foundChildName = false;
+			childT.name().asChar();
+
+			for (int i = 0; i < childT.childCount(); i++)
+			{
+				MObject chi = childT.child(i);
+
+				if (chi.hasFn(MFn::kMesh))
+				{
+					MFnMesh meshFn(chi, &res);
+					if (res == MStatus::kSuccess)
+					{
+						foundChildName = true;
+						aC.childName = meshFn.name().asChar();
+						aC.childNameLength = strlen(meshFn.name().asChar()) + 1;
+					}
+				}
+			}
+			if (foundChildName)
+			{
+				for (int i = 0; i < parT.childCount(); i++)
+				{
+					MObject par = parT.child(i);
+
+					if (par.hasFn(MFn::kMesh))
+					{
+						MFnMesh meshFn(par, &res);
+						if (res == MStatus::kSuccess)
+						{
+							foundParName = true;
+							aC.parentName = meshFn.name().asChar();
+							aC.parentNameLength = strlen(meshFn.name().asChar()) + 1;
+						}
+					}
+				}
+				if (foundParName)
+				{
+					mtx.lock();
+
+					memcpy(msg, &mainH, sizeof(hMainHeader));
+					memcpy(msg + sizeof(hMainHeader), &aC, sizeof(hParChildHeader));
+					memcpy(msg + sizeof(hMainHeader) + sizeof(hParChildHeader), aC.parentName, aC.parentNameLength - 1);
+					*(char*)(msg + sizeof(hMainHeader) + sizeof(hParChildHeader) + aC.parentNameLength - 1) = '\0';
+
+					memcpy(msg + sizeof(hMainHeader) + sizeof(hParChildHeader) + aC.parentNameLength, aC.childName, aC.childNameLength - 1);
+					*(char*)(msg + sizeof(hMainHeader) + sizeof(hParChildHeader) + aC.parentNameLength + aC.childNameLength - 1) = '\0';
+
+					producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hParChildHeader) + aC.parentNameLength + aC.childNameLength);
+
+					mtx.unlock();
+
+					MGlobal::displayInfo("WOOOOOOOOOOOO");
+				}
+			}
+		}
+	}
+}
+
+void fOnHierarchyChildAdded(MDagPath &child, MDagPath &parent, void *clientData)
+{
+	MGlobal::displayInfo("Added child");
+	hMainHeader mainH;
+	mainH.childAddedCount = 1;
+	fMakeChildMessage(mainH, child, parent);
+}
+
+void fOnHierarchyChildRemoved(MDagPath &child, MDagPath &parent, void *clientData)
+{
+	MGlobal::displayInfo("Removed child");
+	hMainHeader mainH;
+	mainH.childRemovedCount = 1;
+	fMakeChildMessage(mainH, child, parent);
+}
 
 void fTransAddCbks(MObject& node, void* clientData)
 {
@@ -822,134 +1060,39 @@ void fTransAddCbks(MObject& node, void* clientData)
 	MCallbackId id;
 	MFnTransform transFn(node, &res);
 	if (res == MStatus::kSuccess)
+	{
 		id = MNodeMessage::addAttributeChangedCallback(node, fOnTransformAttrChange, clientData, &res);
-	if (res == MStatus::kSuccess)
-	{
-		ids.append(id);
-	}
-}
-
-
-/*Saves the names of the object-children of this transform's transform-children*/
-void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::vector<hChildNodeNameHeader>& conh)
-{
-	/*
-	Save the name of the first direct non-transform child of this transform as the child
-	of the "root" transform
-	*/
-	hChildNodeNameHeader lconh;
-
-	bool hasTransChild = false;
-	MStatus res;
-
-	if (res == MStatus::kSuccess)
-	{
-		MObject childObj;
+		if (res == MStatus::kSuccess)
+		{
+			ids.append(id);
+		}
+		//Object does not exist, does it mean that the transform is... dirty? No.
+		//What is the problem, really? Omg.
 		/*
-		Looping through the children, finding a transform, and then looping though it's children
-		in search of a mesh node, and if found adding it to the conh vector.
+		I think this problem is plausible when a node is actually created.
+		But when you iterate through the scene... And it still says
+		that "Object does not exist"
 		*/
-		for (unsigned int i = 0; i < trans.childCount(); i++)
+		MDagPath pth;
+		transFn.getPath(pth);
+
+		id = MDagMessage::addChildAddedDagPathCallback(pth, fOnHierarchyChildAdded, clientData, &res);
+		if (res == MStatus::kSuccess)
 		{
-			childObj = trans.child(i, &res);
-			if (res == MStatus::kSuccess)
-			{
-				if (childObj.hasFn(MFn::kTransform))
-				{
-					hasTransChild = true;
-					MFnTransform tranfn(childObj, &res);
-					if (res == MStatus::kSuccess)
-					{
-						MObject childChildObj;
-						for (int j = 0; j < tranfn.childCount(); j++)
-						{
-							childChildObj = tranfn.child(j, &res);
-							if (res == MStatus::kSuccess)
-							{
-								coh.childNodeCount++;
-								if (childChildObj.hasFn(MFn::kMesh))
-								{
-									MFnMesh meshFn(childChildObj, &res);
-									if (res == MStatus::kSuccess)
-									{
-										lconh.objName = meshFn.name().asChar();
-										lconh.objNameLength = strlen(meshFn.name().asChar()) + 1;
-										conh.push_back(lconh);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-}
-/*Uses the obj to make a transFn object that in turn finds and stores the object-children of it's
-transform children. The obj obviously needs to have a function set for a transform.
-
-Use this function once per transformation node in "onNodeCreate".
-Then use this function in DAG-callbacks.
-The transformation node must be connected to a mesh!
-*/
-void fMakeHierarchyMessage(MObject obj)
-{
-	bool hasMeshFn = false;
-	bool foundMeshName = false;
-	MStatus res;
-	hMainHeader mainH;
-	mainH.hierarchyCount = 1;
-	MFnTransform trans(obj, &res);
-	hHierarchyHeader coh;
-
-	for (int o = 0; o < trans.childCount(); o++)
-	{
-		MObject childObj = trans.child(o);
-		if (childObj.hasFn(MFn::kMesh))
-		{
-			hasMeshFn = true;
-			MFnMesh childMesh(childObj, &res);
-			if (res == MStatus::kSuccess)
-			{
-				coh.parentNodeName = childMesh.name().asChar();
-				coh.parentNodeNameLength = strlen(childMesh.name().asChar()) + 1;
-				foundMeshName = true;
-			}
-		}
-	}
-
-	if (foundMeshName)
-	{
-		std::vector<hChildNodeNameHeader> conh;
-
-		fFindChildrenOfTransform(trans, coh, conh);
-
-		mtx.lock();
-
-		memcpy(msg, &mainH, sizeof(hMainHeader));
-		memcpy(msg + sizeof(hMainHeader), &coh, sizeof(hHierarchyHeader));
-		memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader), coh.parentNodeName, coh.parentNodeNameLength - 1);
-		*(char*)(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength - 1) = '\0';
-		int pastSize = 0;
-		for (int i = 0; i < coh.childNodeCount; i++)
-		{
-			/*Copying te childnameheader into the message, so that we get the name length in the engine*/
-			memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + pastSize, &conh[i], sizeof(hChildNodeNameHeader));
-			/*Copying the name to the spot after the childnameheader*/
-			memcpy(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + sizeof(hChildNodeNameHeader) + pastSize, conh[i].objName, conh[i].objNameLength - 1);
-			*(char*)(msg + sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + +sizeof(hChildNodeNameHeader) + pastSize + conh[i].objNameLength - 1) = '\0';
-			pastSize += sizeof(hChildNodeNameHeader) + conh[i].objNameLength;
-		}
-		MGlobal::displayInfo("Hierarchy Message Made!");
-		producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hHierarchyHeader) + coh.parentNodeNameLength + pastSize);
+			MGlobal::displayInfo("AddChild Success!");
+			ids.append(id);
+		}else
+			MGlobal::displayInfo(MString("AddChild Failed. Error: ") + res.errorString());
 		
-		mtx.unlock();
-	}
-	else if (hasMeshFn && !foundMeshName)
-	{
-		/*Add this hierarchy to the queue...*/
-		gHierarchyQueue.push(obj);
-	}
+		id = MDagMessage::addChildRemovedDagPathCallback(pth, fOnHierarchyChildRemoved, clientData, &res);
+		if (res == MStatus::kSuccess)
+		{
+			MGlobal::displayInfo("RemoveChild Success!");
+			ids.append(id);
+		}
+		else
+			MGlobal::displayInfo(MString("RemoveChild Failed. Error: ") + res.errorString());
+		}
 }
 
 void fOnNodeCreate(MObject& node, void *clientData)
@@ -966,12 +1109,10 @@ void fOnNodeCreate(MObject& node, void *clientData)
     {
         nt = eNodeType::transformNode; MGlobal::displayInfo("TRANSFORM!");
     }
-
 	else if (node.hasFn(MFn::kCamera))
 	{
 		nt = eNodeType::cameraNode; MGlobal::displayInfo("CAMERA!");
 	}
-
     else if (node.hasFn(MFn::kDagNode))
     {
         nt = eNodeType::dagNode; MGlobal::displayInfo("NODE!");
@@ -997,14 +1138,6 @@ void fOnNodeCreate(MObject& node, void *clientData)
 			{
 				fLoadTransform(node, clientData);
 				fTransAddCbks(node, clientData);
-				//This only works for transforms with a direct meshShape as a child
-				//You could also (obviously) have made a "fake" hierarchy by when u 
-				//send a transform message, send away the finished transform matrix
-				//containing the transforms of all of it's transform parents too.
-				//That might be a simpler and less code-intensive way of transferring
-				//hierarchy to gameplay3d.
-				//If all else fails I will do that instead, should be a quick thing 
-				//to solve.
 				fMakeHierarchyMessage(node);
 			}
 			break;
@@ -1100,7 +1233,10 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
 		fOnNodeCreate(gObjQueue.front(), &type);
 	}
 	if (gHierarchyQueue.size() > 0)
+	{
 		fMakeHierarchyMessage(gHierarchyQueue.front());
+		gHierarchyQueue.pop();
+	}
 }
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue)
