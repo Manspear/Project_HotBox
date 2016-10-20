@@ -281,6 +281,7 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 	gameplay::Node* meshNode = scene->findNode(materialHeader->connectedMeshName);
 
+	/*If the mesh exists, set the material with the new changes.*/
 	if (meshNode != NULL)
 	{
 		gameplay::Model* meshModel = static_cast<gameplay::Model*>(meshNode->getDrawable());
@@ -303,7 +304,8 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 		newMaterial->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
 
 		newMaterial->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
-		newMaterial->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1], materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
+		newMaterial->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1], 
+			materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
 
 		//newMaterial->getParameter("u_specularColor")->setValue(materialHeader->specular);
 
