@@ -127,44 +127,6 @@ void Node::addChild(Node* child)
         hierarchyChanged();
     }
 }
-/*
-OK. So, gameplay3D is retarded. That's one thing.
-I think it's the parent node that really needs to 
-let go of this child. Like, omfg.
-Also, I think gameplay.sln needs to recompile 
-if I want my changes to "activate"...
-*/
-void Node::unparent(Node* child)
-{
-	/*This by itself (_parent) only tells the hirrarchy that it's already part of it*/
-	child->_parent = NULL;
-	child->release();
-
-	//if (_firstChild)
-	//{
-	//	Node* n = _firstChild;
-	//	while (n->_nextSibling)
-	//		n = n->_nextSibling;
-
-	//	//This is the child node... Or should be
-	//	n->_nextSibling = NULL;
-	//	//I need this node to get "lost". Need to find 
-	//	//the previous node.
-	//	Node* prev = n->_prevSibling;
-	//	prev->_nextSibling = NULL;
-
-	//	n->_nextSibling = child;
-	//	child->_prevSibling = n;
-	//}
-	//else
-	//	_firstChild = NULL;
-
-	_firstChild = NULL;
-	--_childCount;
-
-	if(_dirtyBits & NODE_DIRTY_HIERARCHY)
-		hierarchyChanged();
-}
 
 void Node::removeChild(Node* child)
 {

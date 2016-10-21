@@ -35,6 +35,8 @@ void HSceneViewer::initialize()
 
 	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
 
+	setVsync(false);
+
 	lightNode->setLight(light);
 	lightNode->translate(Vector3(0, 0, 0));
 	_scene->addNode(lightNode);

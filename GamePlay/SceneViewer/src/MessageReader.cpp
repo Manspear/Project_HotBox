@@ -45,9 +45,13 @@ void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* 
 	
 	//removedList.push_back(temp);
 	gameplay::Node* nd = scene->findNode(remoh->name);
+	
 	if (nd != NULL)
 	{
 		scene->removeNode(nd);
+		gameplay::Node* parNd = nd->getParent();
+		if (parNd != NULL)
+			parNd->removeChild(nd);
 	}
 }
 
@@ -160,6 +164,10 @@ struct sMeshVertices
 	std::vector<sBuiltVertex> vertices;
 };
 
+/*
+"Once a vertex buffer has been set, you cannot change the number of vertices sent into it"
+- Franscisco
+*/
 /*Depending on what's changed, change different values*/
 void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 {
@@ -217,10 +225,10 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
 
 	gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 
-	gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
-	block->setCullFace(true);
-	block->setDepthTest(true);
-	material->setStateBlock(block);
+	//gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
+	material->getStateBlock()->setCullFace(true);
+	material->getStateBlock()->setDepthTest(true);
+	material->getStateBlock()->setDepthWrite(true);
 
 	material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
 	material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
@@ -356,7 +364,7 @@ void HMessageReader::fProcessHierarchyQueue(gameplay::Scene* scene)
 		}
 	}
 }
-
+using namespace gameplay;
 void HMessageReader::fProcessChildChange(char * messageData, gameplay::Scene* scene, eChangeType tp)
 {
 	hParChildHeader* pc = (hParChildHeader*)(messageData + sizeof(hMainHeader));
@@ -368,22 +376,23 @@ void HMessageReader::fProcessChildChange(char * messageData, gameplay::Scene* sc
 
 	if (tp == eChangeType::eRemoveChild)
 	{
-		//parNode->removeChild(childNode);
-		gameplay::Node* firstChild = parNode->getFirstChild();
-		//isEnabledinhirerachy
-		//release
-	/*	gameplay::Node* copy = firstChild->clone();
-		firstChild->suspendTransformChanged();
-*/
+		//gameplay::Vector3 trans = childNode->getTranslation();
+		//gameplay::Quaternion rot = childNode->getRotation();
+		//gameplay::Vector3 scale = childNode->getScale();
 
-		firstChild->unparent(firstChild);
+		//gameplay::Model* model = static_cast<gameplay::Model*>(childNode->getDrawable());
+		//gameplay::Mesh* mesh = model->getMesh();
+		//gameplay::Material* material = model->getMaterial();
 
-		//parNode->removeChild(childNode);
-		//parNode->addChild(firstChild);
+		//gameplay::MaterialParameter* matParam = material->getParameterByIndex(0);
 
+		printf("Childremoved! \n");
 
-	/*	const char* aids = copy->getId();
-		printf("%s", aids);*/
+		Node* asdif = childNode->clone();
+		
+		parNode->removeChild(childNode);
+
+		scene->addNode(asdif);
 	}
 	else if (tp == eChangeType::eAddChild)
 		parNode->addChild(childNode);
@@ -443,7 +452,7 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 	/*Fill the transformlist vector for this process.*/
 	hTransformHeader* transH = (hTransformHeader*)(messageData + sizeof(hMainHeader));
 	transH->childName = (const char*)(messageData + sizeof(hMainHeader) + sizeof(hTransformHeader));
-	printf("Trans: %s\n", transH->childName);
+	//printf("Trans: %s\n", transH->childName);
 	if (transH->childNameLength > 0)
 	{
 		//transH.childName = new char[transH.childNameLength + 1];

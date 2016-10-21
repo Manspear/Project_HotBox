@@ -110,12 +110,6 @@ public:
      */
     virtual void removeChild(Node* child);
 
-	/*
-	Albin's super function!
-	Just detaches the child from the hierarchy
-	*/
-	virtual void unparent(Node* child);
-
     /**
      * Removes all child nodes.
      */

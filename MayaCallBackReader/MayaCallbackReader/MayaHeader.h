@@ -54,11 +54,6 @@ struct hVertexHeader
     float dNormal[3];
 };
 
-struct hMeshVertex
-{
-    std::vector<hVertexHeader> vertexList;
-};
-
 struct hCameraHeader
 {
 	unsigned int cameraNameLength;

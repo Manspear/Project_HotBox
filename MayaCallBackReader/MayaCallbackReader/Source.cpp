@@ -55,15 +55,6 @@ struct sBuiltVertex
     sUV uv;
     sNormal nor;
 };
-struct sMeshVertices
-{
-    std::vector<sBuiltVertex> vertices;
-};
-struct sMesh
-{
-
-    std::vector<sMeshVertices> vertexList;
-};
 
 MCallbackIdArray ids;
 std::queue<MObject> gObjQueue;
@@ -273,7 +264,10 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 }
 
 /*
-Only seems to trigger when new vertices and/or edge loops are added.
+When the actual number of vertices on a mesh changes, you have to send a message
+saying that a "new" mesh with the same name has been made.
+
+When you delete a face, you gotta call a function like this...
 */
 void fOnMeshTopoChange(MObject &node, void *clientData)
 {
@@ -301,13 +295,13 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 		if (res == MStatus::kSuccess)
 		{
 			/*When a mesh point gets changed*/
-			if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
-			{
-				MPoint aPoint;
-				res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
-				if (res == MStatus::kSuccess)
-					MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
-			}
+			//if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
+			//{
+				//MPoint aPoint;
+				//res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
+				//if (res == MStatus::kSuccess)
+				//	MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
+			//}
 			fMakeMeshMessage(temp, false);
 		}
 	}
@@ -926,18 +920,18 @@ void fLoadTransform(MObject& obj, bool isFromQueue)
 
 void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	{
+		MObject obj = plug.node();
+		MStatus res;
+		if (!plug.isArray())
 		{
-			MObject obj = plug.node();
-			MStatus res;
-			if (!plug.isArray())
+			if (obj.hasFn(MFn::kTransform))
 			{
-				if (obj.hasFn(MFn::kTransform))
-				{
-					fLoadTransform(obj, true);
-				}
+				fLoadTransform(obj, true);
 			}
 		}
+	}
 }
 /*
 Currently, as soon as the hierarchy is changed, I simply send the parent and it's children 
@@ -1347,6 +1341,7 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	if (foundChild)
 	{
 		mtx.lock();
+		int prevSize;
 		memcpy(msg, &mainH, sizeof(hMainHeader));
 		memcpy(msg + sizeof(hMainHeader), &transH, sizeof(hTransformHeader));
 		//Copying the name to the shared memory
