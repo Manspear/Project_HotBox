@@ -1612,6 +1612,8 @@ EXPORT MStatus initializePlugin(MObject obj)
 	gCb = new circularBuffer;
 	gCb->initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
 
+	//MNodeMessage::addNodeAboutToDeleteCallback;
+
     float oldTime = gClockTime;
     gClockticks = clock();
     gClockTime = gClockticks / CLOCKS_PER_SEC;
