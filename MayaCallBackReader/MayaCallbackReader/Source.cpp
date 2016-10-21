@@ -291,17 +291,9 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 		MObject temp = plug.node();
 
 		MFnMesh meshFn(temp, &res);
-
+		
 		if (res == MStatus::kSuccess)
 		{
-			/*When a mesh point gets changed*/
-			//if ((MFnMesh(plug.node()).findPlug("pnts") == plug) && plug.isElement())
-			//{
-				//MPoint aPoint;
-				//res = meshFn.getPoint(plug.logicalIndex(), aPoint, MSpace::kObject);
-				//if (res == MStatus::kSuccess)
-				//	MGlobal::displayInfo("Point moved: " + MString() + aPoint.x + " " + aPoint.y + " " + aPoint.z);
-			//}
 			fMakeMeshMessage(temp, false);
 		}
 	}
@@ -467,53 +459,57 @@ void fCameraChanged(const MString &str, void* clientData)
 
 	MDagPath cameraPath;
 
-	if (activeView.getCamera(cameraPath))
+	MString panelName = MGlobal::executeCommandStringResult("getPanel -wf");
+
+	if (strcmp(panelName.asChar(), str.asChar()) == 0)
 	{
-		MFnCamera camFn(cameraPath.node(), &res);
-
-		if (res == MStatus::kSuccess)
+		if (activeView.getCamera(cameraPath))
 		{
-			MFnTransform fnTransform(camFn.parent(0), &res);
+			MFnCamera camFn(cameraPath.node(), &res);
 
-			MMatrix newMat = fnTransform.transformationMatrix();
-
-			MFloatMatrix projMatrix = camFn.projectionMatrix();
-
-			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
-
-			static MFloatMatrix oldProjMatrix = projMatrix;
-
-			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
-			hCam.cameraName = camFn.name().asChar();
-			hCam.cameraNameLength = camFn.name().length();
-
-			if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0 || memcmp(&projMatrix, &oldProjMatrix, sizeof(MFloatMatrix)) != 0)
+			if (res == MStatus::kSuccess)
 			{
-				oldMat = newMat;
-				oldProjMatrix = projMatrix;
+				MFnTransform fnTransform(camFn.parent(0), &res);
 
-				if (res == MStatus::kSuccess)
+				MMatrix newMat = fnTransform.transformationMatrix();
+
+				MFloatMatrix projMatrix = camFn.projectionMatrix();
+
+				projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
+				projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
+
+				static MFloatMatrix oldProjMatrix = projMatrix;
+
+				memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
+				hCam.cameraName = camFn.name().asChar();
+				hCam.cameraNameLength = camFn.name().length();
+
+				if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0 || memcmp(&projMatrix, &oldProjMatrix, sizeof(MFloatMatrix)) != 0)
 				{
-					MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
+					oldMat = newMat;
+					oldProjMatrix = projMatrix;
 
-					double camTrans[3];
-					tempTrans.get(camTrans);
-					double camScale[3];
-					fnTransform.getScale(camScale);
-					double camQuat[4];
-					fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kTransform);
+					if (res == MStatus::kSuccess)
+					{
+						MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
 
-					std::copy(camTrans, camTrans + 3, hCam.trans);
-					std::copy(camScale, camScale + 3, hCam.scale);
-					std::copy(camQuat, camQuat + 4, hCam.rot);
+						double camTrans[3];
+						tempTrans.get(camTrans);
+						double camScale[3];
+						fnTransform.getScale(camScale);
+						double camQuat[4];
+						fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kTransform);
+
+						std::copy(camTrans, camTrans + 3, hCam.trans);
+						std::copy(camScale, camScale + 3, hCam.scale);
+						std::copy(camQuat, camQuat + 4, hCam.rot);
+					}
+
+					fMakeCameraMessage(hCam);
 				}
-
-				fMakeCameraMessage(hCam);
 			}
-		}	
+		}
 	}
-		
 }
 
 void fCameraAddCbks(MObject& node, void* clientData)
@@ -535,10 +531,30 @@ void fCameraAddCbks(MObject& node, void* clientData)
 			}
 
 			/*Collect changes when active camera changes.*/
+			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel1"), fCameraChanged, NULL, &res);
+			if (res == MStatus::kSuccess)
+			{
+				MGlobal::displayInfo("cameraChanged success!");
+				ids.append(id);
+			}
+
+			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel2"), fCameraChanged, NULL, &res);
+			if (res == MStatus::kSuccess)
+			{
+				MGlobal::displayInfo("cameraChanged success!");
+				ids.append(id);
+			}
+
+			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel3"), fCameraChanged, NULL, &res);
+			if (res == MStatus::kSuccess)
+			{
+				MGlobal::displayInfo("cameraChanged success!");
+				ids.append(id);
+			}
+
 			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
 			if (res == MStatus::kSuccess)
 			{
-				/*Seems like entering any Panel from 1 to 4 won't matter. Still get the viewport were currently in.*/
 				MGlobal::displayInfo("cameraChanged success!");
 				ids.append(id);
 			}
@@ -610,34 +626,87 @@ void fMakeMaterialMessage(hMaterialHeader hMaterial)
 
 	HMainHead.materialCount = 1;
 
-	hMaterial.materialNameLength++;
-	hMaterial.connectedMeshNameLength++;
-	int totalSize = mainMem + materialMem + hMaterial.materialNameLength + hMaterial.connectedMeshNameLength;
+	int totalSize = mainMem + materialMem;
+	hMaterial.numConnectedMeshes = hMaterial.connectMeshList.size();
 
 	mtx.lock();
 	memcpy(msg, (void*)&HMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&hMaterial, materialMem);
-	memcpy(msg + mainMem + materialMem, (void*)hMaterial.materialName, hMaterial.materialNameLength - 1);
-	memcpy(msg + mainMem + materialMem + hMaterial.materialNameLength, (void*)hMaterial.connectedMeshName, hMaterial.connectedMeshNameLength - 1);
 
-	*(char*)(msg + mainMem + materialMem + hMaterial.materialNameLength - 1) = '\0';
-	*(char*)(msg + mainMem + materialMem + hMaterial.materialNameLength + hMaterial.connectedMeshNameLength - 1) = '\0';
+	int prevSize = 0;
+	for (int i = 0; i < hMaterial.connectMeshList.size(); i++)
+	{
+		memcpy(msg + mainMem + materialMem + prevSize, &hMaterial.connectMeshList[i], sizeof(hMeshConnectMaterialHeader));
+		memcpy(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize, (char*)hMaterial.connectMeshList[i].connectMeshName, hMaterial.connectMeshList[i].connectMeshNameLength - 1);
+		*(char*)(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize + hMaterial.connectMeshList[i].connectMeshNameLength - 1) = '\0';
 
-	producer->runProducer(gCb, (char*)msg, totalSize);
+		prevSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+
+		totalSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+	}
+
+	producer->runProducer(gCb, msg, totalSize);
 	mtx.unlock();
 }
 
 void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
 {
-	MStatus res;
-
-	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
+	if (attrMessage & MNodeMessage::kAttributeSet)
 	{
-		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
+		MStatus res;
 		MObject tempData;
 		float rgb[3];
 
-		if (colorPlug == plug && res == MStatus::kSuccess)
+		hMaterialHeader hMaterial;
+		hMeshConnectMaterialHeader hMeshMaterial;
+
+		/*Find the all the connections with the shader and store in an array.*/
+		MPlugArray connectionsToShader;
+
+		MPlug outColorPlug = MFnDependencyNode(plug.node()).findPlug("outColor", &res);
+
+		outColorPlug.connectedTo(connectionsToShader, false, true, &res);
+
+		if (connectionsToShader.length())
+		{
+			for (int connectIndex = 0; connectIndex < connectionsToShader.length(); connectIndex++)
+			{
+				if (connectionsToShader[connectIndex].node().hasFn(MFn::kShadingEngine))
+				{
+					MFnDependencyNode shadingNode;
+					shadingNode.setObject(connectionsToShader[connectIndex].node());
+
+					MGlobal::displayInfo(shadingNode.name());
+
+					MPlug dagSetMemberPlug = shadingNode.findPlug("dagSetMembers", &res);
+
+					MPlugArray connectionsToSG;
+
+					for (int dagSetIndex = 0; dagSetIndex < dagSetMemberPlug.numConnectedElements(); dagSetIndex++)
+					{
+						dagSetMemberPlug[dagSetIndex].connectedTo(connectionsToSG, true, false, &res);
+
+						if (connectionsToSG.length())
+						{
+							for (int meshIndex = 0; meshIndex < connectionsToSG.length(); meshIndex++)
+							{
+								MFnMesh mesh(connectionsToSG[meshIndex].node());
+
+								MGlobal::displayInfo(mesh.name());
+
+								hMeshMaterial.connectMeshName = mesh.name().asChar();
+								hMeshMaterial.connectMeshNameLength = mesh.name().length() + 1;
+
+								hMaterial.connectMeshList.push_back(hMeshMaterial);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
+		if (res == MStatus::kSuccess)
 		{
 			if (res == MStatus::kSuccess)
 			{
@@ -646,32 +715,40 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 
 				colorData.getData(rgb[0], rgb[1], rgb[2]);
 
-				MGlobal::displayInfo(MString("Color: ") +
-					MString("R: ") + rgb[0] + MString(" ") +
-					MString("G: ") + rgb[1] + MString(" ") +
-					MString("B: ") + rgb[2]);
+				hMaterial.diffuseColor[0] = (float)rgb[0];
+				hMaterial.diffuseColor[1] = (float)rgb[1];
+				hMaterial.diffuseColor[2] = (float)rgb[2];
+				hMaterial.diffuseColor[3] = 1.0f;
+			}
+
+			MPlug diffusePlug = MFnDependencyNode(plug.node()).findPlug("diffuse", &res);
+			if (res == MStatus::kSuccess)
+			{
+				float diffExp;
+				diffusePlug.getValue(diffExp);
+
+				hMaterial.diffuseColor[0] *= (float)diffExp;
+				hMaterial.diffuseColor[1] *= (float)diffExp;
+				hMaterial.diffuseColor[2] *= (float)diffExp;
+
+				MGlobal::displayInfo(MString("Diffuse Color: ") +
+					MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
+					MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
+					MString("B: ") + hMaterial.diffuseColor[2]);
 			}
 		}
 
-		MPlug diffusePlug = MFnDependencyNode(plug.node()).findPlug("diffuse", &res);
-		if (diffusePlug == plug && res == MStatus::kSuccess)
-		{
-			float diffuse;
-			diffusePlug.getValue(diffuse);
-
-			MGlobal::displayInfo(MString("Diffuse: ") +
-				MString("R: ") + diffuse + MString(" ") +
-				MString("G: ") + diffuse + MString(" ") +
-				MString("B: ") + diffuse);
-		}
-
 		MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
-		if (ambientPlug == plug && res == MStatus::kSuccess)
+		if (res == MStatus::kSuccess)
 		{
 			ambientPlug.getValue(tempData);
 			MFnNumericData ambientData(tempData);
 
 			ambientData.getData(rgb[0], rgb[1], rgb[2]);
+
+			hMaterial.ambient[0] = rgb[0];
+			hMaterial.ambient[1] = rgb[1];
+			hMaterial.ambient[2] = rgb[2];
 
 			MGlobal::displayInfo(MString("Ambient: ") +
 				MString("R: ") + rgb[0] + MString(" ") +
@@ -682,12 +759,16 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 		if (plug.node().hasFn(MFn::kPhong) || plug.node().hasFn(MFn::kBlinn))
 		{
 			MPlug specularPlug = MFnDependencyNode(plug.node()).findPlug("specularColor", &res);
-			if (specularPlug == plug && res == MStatus::kSuccess)
+			if (res == MStatus::kSuccess)
 			{
 				specularPlug.getValue(tempData);
 				MFnNumericData specularData(tempData);
 
 				specularData.getData(rgb[0], rgb[1], rgb[2]);
+
+				hMaterial.specular[0] = rgb[0];
+				hMaterial.specular[1] = rgb[1];
+				hMaterial.specular[2] = rgb[2];
 
 				MGlobal::displayInfo(MString("Specular: ") +
 					MString("R: ") + rgb[0] + MString(" ") +
@@ -701,7 +782,13 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 		{
 			/*Set specular to zero in RGB.*/
 			MGlobal::displayInfo(MString("No specular for kLambert!"));
+
+			hMaterial.specular[0] = 0;
+			hMaterial.specular[1] = 0;
+			hMaterial.specular[2] = 0;
 		}
+
+		fMakeMaterialMessage(hMaterial);
 	}
 }
 
@@ -713,12 +800,10 @@ void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, 
 
 	MObject shaderNode = fFindShader(set);
 
-	MGlobal::displayInfo(shaderNode.apiTypeStr());
-			
 	if (shaderNode != MObject::kNullObj)
 	{
 		MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
-				
+
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
@@ -729,19 +814,18 @@ void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, 
 void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 {
 	MStatus res;
-
-	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
 	MObject tempData;
 	float rgb[3];
 
 	hMaterialHeader hMaterial;
+	hMeshConnectMaterialHeader hMeshMaterial;
 
-	hMaterial.materialName = MFnDependencyNode(shaderNode).name().asChar();
-	hMaterial.materialNameLength = MFnDependencyNode(shaderNode).name().length();
+	hMeshMaterial.connectMeshName = mesh.name().asChar();
+	hMeshMaterial.connectMeshNameLength = mesh.name().length() + 1;
 
-	hMaterial.connectedMeshName = mesh.name().asChar();
-	hMaterial.connectedMeshNameLength = mesh.name().length();
+	hMaterial.connectMeshList.push_back(hMeshMaterial);
 
+	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
 	if (res == MStatus::kSuccess)
 	{
 		if (res == MStatus::kSuccess)
@@ -751,32 +835,27 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 
 			colorData.getData(rgb[0], rgb[1], rgb[2]);
 
-			hMaterial.color[0] = rgb[0];
-			hMaterial.color[1] = rgb[1];
-			hMaterial.color[2] = rgb[2];
-
-			MGlobal::displayInfo(MString("Color: ") +
-				MString("R: ") + rgb[0] + MString(" ") +
-				MString("G: ") + rgb[1] + MString(" ") +
-				MString("B: ") + rgb[2]);
+			hMaterial.diffuseColor[0] = (float)rgb[0];
+			hMaterial.diffuseColor[1] = (float)rgb[1];
+			hMaterial.diffuseColor[2] = (float)rgb[2];
+			hMaterial.diffuseColor[3] = 1.0f;
 		}
-	}
 
-	MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
-	if (res == MStatus::kSuccess)
-	{
-		float diffuse;
-		diffusePlug.getValue(diffuse);
+		MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
+		if (res == MStatus::kSuccess)
+		{
+			float diffExp;
+			diffusePlug.getValue(diffExp);
 
-		hMaterial.diffuse[0] = diffuse;
-		hMaterial.diffuse[1] = diffuse;
-		hMaterial.diffuse[2] = diffuse;
-		hMaterial.diffuse[3] = diffuse;
+			hMaterial.diffuseColor[0] *= (float)diffExp;
+			hMaterial.diffuseColor[1] *= (float)diffExp;
+			hMaterial.diffuseColor[2] *= (float)diffExp;
 
-		MGlobal::displayInfo(MString("Diffuse: ") +
-			MString("R: ") + diffuse + MString(" ") +
-			MString("G: ") + diffuse + MString(" ") +
-			MString("B: ") + diffuse);
+			MGlobal::displayInfo(MString("Diffuse Color: ") +
+				MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
+				MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
+				MString("B: ") + hMaterial.diffuseColor[2]);
+		}
 	}
 
 	MPlug ambientPlug = MFnDependencyNode(shaderNode).findPlug("ambientColor", &res);
@@ -839,24 +918,20 @@ void fGetMeshMaterial(MObject& node)
 	if (node.hasFn(MFn::kMesh))
 	{
 		MFnMesh meshFn(node);
-		/*Register callback when a mesh changes material.*/
-		/*MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+		/*register callback when a mesh changes material.*/
+		MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, &node, &res);
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
-		}*/
+		}
 
 		MObject set = fFindMaterialConnected(node);
 
 		MObject shaderNode = fFindShader(set);
 
-		if (firstMaterial == true)
-		{
-			fLoadActiveMaterial(shaderNode, meshFn);
-			firstMaterial = false;
-		}
+		fLoadActiveMaterial(shaderNode, meshFn);
 
-		/*if (shaderNode != MObject::kNullObj)
+		if (shaderNode != MObject::kNullObj)
 		{
 			MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
 
@@ -864,9 +939,10 @@ void fGetMeshMaterial(MObject& node)
 			{
 				ids.append(id);
 			}
-		}*/
+		}
 	}
 }
+
 
 void fDagNodeAddCbks(MObject& node, void* clientData)
 {
@@ -1244,8 +1320,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
 	fLoadMesh(mesh, isFromQueue, meshVertices);
 
-	fGetMeshMaterial(obj);
-
     /*Have this function become awesome*/
     hMainHeader mainH;
 
@@ -1279,6 +1353,8 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
     producer->runProducer(gCb, (char*)msg, totPackageSize);
 	mtx.unlock();
+
+	fGetMeshMaterial(obj);
 }
 
 void fMakeCameraMessage(hCameraHeader& gCam)

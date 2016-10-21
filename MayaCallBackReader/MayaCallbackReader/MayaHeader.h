@@ -108,24 +108,24 @@ struct hLightHeader
     float color[3];
 };
 
+struct hMeshConnectMaterialHeader
+{
+	const char* connectMeshName;
+	unsigned int connectMeshNameLength = 0;
+};
+
 struct hMaterialHeader
 {
-	unsigned int materialNameLength;
-	const char* materialName;
+	int numConnectedMeshes;
+	std::vector<hMeshConnectMaterialHeader> connectMeshList;
 
-	unsigned int connectedMeshNameLength;
-	const char* connectedMeshName;
+	float ambient[3];
+	float diffuseColor[3];
+	float specular[3];
 
-    /*float reflectivity;*/
-
-    float ambient[3];
-    float diffuse[4];
-    float specular[3];
-    float color[3];
-
-    /*char normalMap[256];
-    char diffuseMap[256];
-    char specularMap[256];*/
+	/*char normalMap[256];
+	char diffuseMap[256];
+	char specularMap[256];*/
 };
 
 #endif MAYAHEADER_H

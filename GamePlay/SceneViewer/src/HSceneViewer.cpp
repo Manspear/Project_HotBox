@@ -33,12 +33,12 @@ void HSceneViewer::initialize()
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
 	Node* lightNode = Node::create("pointLightShape1");
 
-	Light* light = Light::createPoint(Vector3(0.5f, 0.5f, 0.5f), 20);
+	Light* light = Light::createPoint(Vector3(1.0f, 1.0f, 1.0f), 200);
 
 	setVsync(false);
 
 	lightNode->setLight(light);
-	lightNode->translate(Vector3(0, 0, 0));
+	lightNode->translate(Vector3(0, 3, 0));
 	_scene->addNode(lightNode);
 	lightNode->release();
 	light->release();
@@ -61,10 +61,14 @@ what happened to that node --> have some bools
 void HSceneViewer::update(float elapsedTime)
 {
 	static float timer = 0;
-	/*Loop through the transformqueue here*/
-	msgReader->fProcessTransformQueue(_scene);
+	
 	/*Get the information we send from the Maya plugin here.*/
 	msgReader->fRead(msgReader->circBuff, _scene);
+
+	/*Looping through queues.*/
+	msgReader->fProcessTransformQueue(_scene);
+	/*This needs to be laid after fRead. Otherwise odd hierarchy stuff happen, probably because of 
+	removeMessage*/
 	msgReader->fProcessHierarchyQueue(_scene);
 }
 

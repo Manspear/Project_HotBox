@@ -217,31 +217,31 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
 	};
 	const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
 
-	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader->vertexCount, true);
+	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader->vertexCount, false);
 	mesh->setVertexData(vertList, 0, meshHeader->vertexCount);
 
 	gameplay::Model* meshModel = gameplay::Model::create(mesh);
 		mesh->release();
 
-	gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
+	//gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
 
-	//gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
-	material->getStateBlock()->setCullFace(true);
-	material->getStateBlock()->setDepthTest(true);
-	material->getStateBlock()->setDepthWrite(true);
+	////gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
+	//material->getStateBlock()->setCullFace(true);
+	//material->getStateBlock()->setDepthTest(true);
+	//material->getStateBlock()->setDepthWrite(true);
 
-	material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
-	material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
-	material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
+	//material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
+	//material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
+	//material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-	gameplay::Node* lightNode = scene->findNode("pointLightShape1");
+	//gameplay::Node* lightNode = scene->findNode("pointLightShape1");
 
-	material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
-	material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
-	material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
+	//material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
+	//material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
+	//material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
 
-	material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(0.5, 0.5, 0.5));
-	material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(0.5, 0.5, 0.5, 0.5));
+	//material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(0.5, 0.5, 0.5));
+	//material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(0.5, 0.5, 0.5, 0.5));
 
 	nd->setDrawable(meshModel);
 
@@ -438,8 +438,50 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 {
 	hMaterialHeader* materialHeader = (hMaterialHeader*)(messageData + sizeof(hMainHeader));
 
-	materialHeader->materialName = messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader);
-	materialHeader->connectedMeshName = messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + materialHeader->materialNameLength;
+	materialHeader->connectMeshList.resize(materialHeader->numConnectedMeshes);
+
+	int prevSize = 0;
+
+	for (int i = 0; i < materialHeader->connectMeshList.size(); i++)
+	{
+		hMeshConnectMaterialHeader* hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + prevSize);
+		hConnectMaterial->connectMeshName = (char*)((char*)hConnectMaterial + sizeof(hMeshConnectMaterialHeader));
+
+		prevSize += sizeof(hMeshConnectMaterialHeader) + hConnectMaterial->connectMeshNameLength;
+
+		gameplay::Node* meshNode = scene->findNode(hConnectMaterial->connectMeshName);
+
+		if (meshNode != NULL)
+		{
+			gameplay::Model* meshModel = static_cast<gameplay::Model*>(meshNode->getDrawable());
+
+			gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
+
+			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
+			block->setCullFace(true);
+			block->setDepthTest(true);
+			block->setDepthWrite(true);
+			material->setStateBlock(block);
+
+			material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
+			material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
+			material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
+
+			gameplay::Node* lightNode = scene->findNode("pointLightShape1");
+
+			material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
+			material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
+			material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
+
+			material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
+			material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1],
+				materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
+
+			//newMaterial->getParameter("u_specularColor")->setValue(materialHeader->specular);
+
+			meshModel->setMaterial(material);
+		}
+	}
 }
 
 void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
