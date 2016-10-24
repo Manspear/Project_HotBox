@@ -206,6 +206,7 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
     const float * rwPnts = mesh.getRawPoints(&res);
     const float * rwNrmls = mesh.getRawNormals(&res);
+	
 
     MStringArray uvSetNames;
     mesh.getUVSetNames(uvSetNames);
@@ -229,31 +230,86 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
         pntArr.append(tempPoint);
     }
-    MFloatArray u;
-    MFloatArray v;
-    mesh.getUVs(u, v, &uvSetNames[0]);
-    MIntArray uvIndexArray;
-    int uvId;
-    int vertCnt;
-    int triangleVerts[3];
-    for (int i = 0; i < mesh.numPolygons(); i++)
-    {
-        vertCnt = mesh.polygonVertexCount(i, &res);
-        if (res == MStatus::kSuccess)
-        {
-            for (int j = 0; j < triCnt[i]; j++)
-            {
-                mesh.getPolygonTriangleVertices(i, j, triangleVerts);
+ //   MFloatArray u;
+ //   MFloatArray v;
+ //   mesh.getUVs(u, v, &uvSetNames[0]);
+ //   MIntArray uvIndexArray;
+ //   int uvId;
+ //   int vertCnt;
+ //   int triangleVerts[3];
+	////For each polygon
+ //   for (int i = 0; i < mesh.numPolygons(); i++)
+ //   {
+ //       vertCnt = mesh.polygonVertexCount(i, &res);
+ //       if (res == MStatus::kSuccess)
+ //       {
+ //           for (int j = 0; j < triCnt[i]; j++)
+ //           {
+ //               mesh.getPolygonTriangleVertices(i, j, triangleVerts);
 
-                mesh.getPolygonUVid(i, triangleVerts[0], uvId);      
-                uvIndexArray.append(uvId);
-                mesh.getPolygonUVid(i, triangleVerts[1], uvId);
-                uvIndexArray.append(uvId);
-                mesh.getPolygonUVid(i, triangleVerts[2], uvId);
-                uvIndexArray.append(uvId);
-            }
-        } 
-    }
+ //               mesh.getPolygonUVid(i, triangleVerts[0], uvId);      
+ //               uvIndexArray.append(uvId);
+ //               mesh.getPolygonUVid(i, triangleVerts[1], uvId);
+ //               uvIndexArray.append(uvId);
+ //               mesh.getPolygonUVid(i, triangleVerts[2], uvId);
+ //               uvIndexArray.append(uvId);
+ //           }
+ //       } 
+ //   }
+
+	MFloatArray u;
+	MFloatArray v;
+	mesh.getUVs(u, v, &uvSetNames[0]);
+	MIntArray uvIndexArray;
+	int uvId;
+	int vertCnt;
+	int newTris[6];
+	//For each polygon
+	for (int i = 0; i < mesh.numPolygons(); i++)
+	{
+		vertCnt = mesh.polygonVertexCount(i, &res);
+		if (res == MStatus::kSuccess)
+		{
+			MIntArray tempUVIndexArray;
+			//For each vertex in the polygon
+			for (int j = 0; j < vertCnt; j++)
+			{
+				mesh.getPolygonUVid(i, j, uvId);
+				tempUVIndexArray.append(uvId);
+			}
+			//"transform" it into triangles by... 
+			//first checking if the count of 
+			//vertices are more than 3.
+			//Then loop through the first three indices
+			//they are one triangle. The first and the third
+			//vertex will be used together with the fourth 
+			//vertex to build the second triangle. 
+			if (vertCnt == 4)
+			{
+				newTris[0] = tempUVIndexArray[0];
+				newTris[1] = tempUVIndexArray[1];
+				newTris[2] = tempUVIndexArray[2];
+				newTris[3] = tempUVIndexArray[0];
+				newTris[4] = tempUVIndexArray[2];
+				newTris[5] = tempUVIndexArray[3];
+
+				for (int i = 0; i < 6; i++)
+					uvIndexArray.append(newTris[i]);
+			}
+			if (vertCnt == 3)
+			{
+				for (int i = 0; i < 3; i++)
+					uvIndexArray.append(tempUVIndexArray[i]);
+			}
+		}
+	}
+
+	uvIndexArray.length();
+	allVert.size();
+	MGlobal::displayInfo(MString("POOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO uvIndexArray: ") + MString("") + uvIndexArray.length() + MString("ALLVERTASDDDDDDDDDDDDDDDD ") + allVert.size());
+	//uvIndexarray is size 24. allVert is size 36. How to "sync" them?
+	//The indexes should be set up in a similar manner across all attributes...
+	//But not UVs. They are special MFers.
     for (int i = 0; i < allVert.size(); i++)
     {
         mesh.getUV(uvIndexArray[i], allVert[i].uv.u, allVert[i].uv.v, &uvSetNames[0]);
@@ -271,20 +327,26 @@ When you delete a face, you gotta call a function like this...
 */
 void fOnMeshTopoChange(MObject &node, void *clientData)
 {
+	//MFnMesh mesh(node);
+	//fMakeMeshMessage(node, false);
+
 	MGlobal::displayInfo("TOPOLOGY!");
     MStatus res;
     MFnMesh meshFn(node, &res);
     if (res == MStatus::kSuccess)
     {
+		MGlobal::displayInfo("TOPOLOGY2!");
+		fMakeMeshMessage(node, false);
         //loadMesh // reloadMesh
     }
 }
 
+
+
 void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
-	///*Limit the number of "updates per second" of this function*/
-	//if (gMeshUpdateTimer > gDt30Fps)
-	//{
+	//Maybe this is how you compare attrMessage? THis is how you compare messages... Odd
+	/*When you click on a face with move tool, you change an attribute named "uvPivot" */
 	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 	{
 		MStatus res;
@@ -372,6 +434,20 @@ void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *cli
     MGlobal::displayInfo("I AM CHANGED!");
 }
 
+void fOnGeometryDelete(MObject &node, MDGModifier &modifier, void *clientData)
+{
+	MGlobal::displayInfo("GEOMETRY DELETEDaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!");
+}
+void fOnUVSetChange(MObject &node, const MString &name, MPolyMessage::MessageType type, void *clientData)
+{
+	MGlobal::displayInfo("UV SET CHANGED!");
+}
+
+void fOnModelNodeRemoved (MObject &node, void *clientData)
+{
+	MGlobal::displayInfo("NODE REMOVED FROM MODEL!");
+}
+
 void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -383,23 +459,49 @@ void fMeshAddCbks(MObject& node, void* clientData)
         if (res == MStatus::kSuccess)
             ids.append(id);
 
-        id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
-        if (res == MStatus::kSuccess)
-            ids.append(id);
+        //id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
+        //if (res == MStatus::kSuccess)
+        //    ids.append(id);
+		//bool arr[4]{ false, false, true, false };
+		//bool shit = tr
+
+		//id = MPolyMessage::addPolyComponentIdChangedCallback(node, shit, 1, fOnComponentChange, NULL, &res);
+
+		//if (res == MStatus::kSuccess)
+		//{
+		//	ids.append(id);
+		//	MGlobal::displayInfo("addPolyComponentIdChanged SUcess!");
+		//}
+		//else
+		//	MGlobal::displayInfo(MString("WOLOLO ") + res.errorString());
 
         id = MPolyMessage::addPolyTopologyChangedCallback(node, fOnMeshTopoChange, NULL, &res);
         if (res == MStatus::kSuccess)
         {
+			MGlobal::displayInfo("Polytopo SUcess!");
 			ids.append(id);
 		}
-		bool arr[4]{ true, false, false, false };
-		id = MPolyMessage::addPolyComponentIdChangedCallback(node, arr, 4, fOnComponentChange, NULL, &res);
+		MPolyMessage::addUVSetChangedCallback(node, fOnUVSetChange, NULL, &res);
+
+
+		id = MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
+		if (res == MStatus::kSuccess)
+		{
+			MGlobal::displayInfo("Delete SUcess!");
+			ids.append(id);
+		}
+
+		id = MModelMessage::addNodeRemovedFromModelCallback(node, fOnModelNodeRemoved, NULL, &res);
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
+			MGlobal::displayInfo("Delete SUcess!");
 		}
+		//MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
 	}
 }
+
+
 
 void fLoadCamera()
 {
@@ -1196,7 +1298,8 @@ void fOnNodeCreate(MObject& node, void *clientData)
             if (res == MStatus::kSuccess)
             {
                 fMeshAddCbks(node, clientData);
-                //fLoadMesh(meshFn, false);
+                //This gets called when the move tool is selected, for some reason
+				MGlobal::displayInfo("MESH NODE CREATED!");
 				fMakeMeshMessage(node, false);
             }
             break;
@@ -1589,6 +1692,7 @@ void fAddCallbacks()
 		ids.append(temp);
 	}
 }
+
 // called when the plugin is loaded
 EXPORT MStatus initializePlugin(MObject obj)
 {
@@ -1611,8 +1715,6 @@ EXPORT MStatus initializePlugin(MObject obj)
 
 	gCb = new circularBuffer;
 	gCb->initCircBuffer(TEXT("MessageBuffer"), BUFFERSIZE, 0, CHUNKSIZE, TEXT("VarBuffer"));
-
-	//MNodeMessage::addNodeAboutToDeleteCallback;
 
     float oldTime = gClockTime;
     gClockticks = clock();

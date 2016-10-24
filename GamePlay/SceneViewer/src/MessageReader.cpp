@@ -193,14 +193,40 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 	if (nd != NULL)
 	{
 		gameplay::Model* model = static_cast<gameplay::Model*>(nd->getDrawable());
-		model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->vertexCount);
+		if (model->getMesh()->getVertexCount() == meshHeader->vertexCount)
+			model->getMesh()->setVertexData(vtxPtr, 0, meshHeader->vertexCount);
+		else 
+		if (model->getMesh()->getVertexCount() != meshHeader->vertexCount)
+		{
+			nd->setDrawable(NULL);
+			fRefreshMeshNode(vtxPtr, meshHeader, nd, scene);
+		}
 	}
 	else
-	{
 		fCreateNewMeshNode(const_cast<char*>(meshHeader->meshName), vtxPtr, meshHeader, nd, scene);
-	}
-	//delete[] meshName;
-	//delete[] prntTransName;
+}
+
+void HMessageReader::fRefreshMeshNode(hVertexHeader* vertList,
+	hMeshHeader* meshHeader, gameplay::Node* nd, gameplay::Scene* scene)
+{
+
+	gameplay::VertexFormat::Element elements[] = {
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::POSITION, 3),
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::TEXCOORD0, 2),
+		gameplay::VertexFormat::Element(gameplay::VertexFormat::NORMAL, 3)
+	};
+	const gameplay::VertexFormat vertFormat(elements, ARRAYSIZE(elements));
+
+	gameplay::Mesh* mesh = gameplay::Mesh::createMesh(vertFormat, meshHeader->vertexCount, false);
+	mesh->setVertexData(vertList, 0, meshHeader->vertexCount);
+
+	gameplay::Model* meshModel = gameplay::Model::create(mesh);
+	mesh->release();
+
+	nd->setDrawable(meshModel);
+
+	scene->addNode(nd);
+	
 }
 
 void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList, 
@@ -221,31 +247,9 @@ void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
 	mesh->setVertexData(vertList, 0, meshHeader->vertexCount);
 
 	gameplay::Model* meshModel = gameplay::Model::create(mesh);
-		mesh->release();
-
-	//gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
-
-	////gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
-	//material->getStateBlock()->setCullFace(true);
-	//material->getStateBlock()->setDepthTest(true);
-	//material->getStateBlock()->setDepthWrite(true);
-
-	//material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
-	//material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
-	//material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
-
-	//gameplay::Node* lightNode = scene->findNode("pointLightShape1");
-
-	//material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
-	//material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
-	//material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
-
-	//material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(0.5, 0.5, 0.5));
-	//material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(0.5, 0.5, 0.5, 0.5));
+	mesh->release();
 
 	nd->setDrawable(meshModel);
-
-	nd->setTranslation(gameplay::Vector3(0, 0, -3));
 
 	scene->addNode(nd);
 }
@@ -459,8 +463,10 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
 			block->setCullFace(true);
-			block->setDepthTest(true);
+			block->setDepthTest(false);
 			block->setDepthWrite(true);
+			//block->setFrontFace(gameplay::RenderState::FrontFace::FRONT_FACE_CW);
+
 			material->setStateBlock(block);
 
 			material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);

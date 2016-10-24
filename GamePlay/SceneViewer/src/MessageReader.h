@@ -111,6 +111,8 @@ private:
 	void fCreateNewMeshNode(char* meshName, hVertexHeader* vertList,
 						    hMeshHeader* meshHeader, gameplay::Node* nd,
 							gameplay::Scene* scene);
+	void fRefreshMeshNode(hVertexHeader* vertList,
+		hMeshHeader* meshHeader, gameplay::Node* nd, gameplay::Scene* scene);
 /*!
 	Applies its transform to the transform's node, and sets a child if there is one
 	We need to be able to have more than one child in the future.
