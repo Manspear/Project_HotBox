@@ -17,6 +17,10 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH);
 void fMakeMeshMessage(MObject obj, bool isFromQueue);
 void fMakeCameraMessage(hCameraHeader& gCam);
 
+void fLoadMaterial(MObject& node);
+void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData);
+void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData);
+
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer* gCb;
 Producer* producer;
@@ -201,15 +205,46 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
     /*FUCK INDEXING! LET'S DO IT THE SHITTY WAY!!!*/
     MStatus res;
-    MIntArray triCnt;
+   // MIntArray triCnt;
     MIntArray triVert; //vertex Ids for each tri vertex
 
     const float * rwPnts = mesh.getRawPoints(&res);
     const float * rwNrmls = mesh.getRawNormals(&res);
 	
+	MIntArray vertCnt;
+	//Indices for raw pnts //polygon lvl // 24 for cube
+	MIntArray vertList;
+	mesh.getVertices(vertCnt, vertList);
+	//Now get indices for vertList!
+	//triIndices index into the vertList!
+	MIntArray triCnt;
+	MIntArray triIndices;
+	mesh.getTriangleOffsets(triCnt, triIndices);
+	
+	//Now put the vertex data into per-polygon arrays!
+	//for (int i = 0; i < mesh.numPolygons(); i++)
+	//{
+	//	for (int j = 0; j < mesh.polygonVertexCount(i, NULL); j++)
+	//	{
 
+	//	}
+	//}
+	for (int i = 0; i < triIndices.length(); i++)
+	{
+		sBuiltVertex vert;
+		sPoint pnt;
+		pnt.x = rwPnts[vertList[triIndices[i] + (i * 3)]];
+		pnt.y = rwPnts[vertList[triIndices[i] + (i * 3) + 1]];
+		pnt.z = rwPnts[vertList[triIndices[i] + (i * 3) + 2]];
+		
+
+	}
+
+	//mesh.getUVs() gives u
+	//mesh.getAssignedUVs() gives u 
     MStringArray uvSetNames;
     mesh.getUVSetNames(uvSetNames);
+	
 
     //std::vector<sBuiltVertex> allVert;
     MPointArray pntArr;
@@ -221,6 +256,7 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
     {
         mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);  //<-- These used!
         mesh.getPoint(triVert[i], tempPoint, MSpace::kObject);
+		//mesh.getUV
         allVert[i].pnt.x = tempPoint.x;
         allVert[i].pnt.y = tempPoint.y;
         allVert[i].pnt.z = tempPoint.z;
@@ -230,6 +266,7 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
         pntArr.append(tempPoint);
     }
+
  //   MFloatArray u;
  //   MFloatArray v;
  //   mesh.getUVs(u, v, &uvSetNames[0]);
@@ -262,47 +299,48 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 	mesh.getUVs(u, v, &uvSetNames[0]);
 	MIntArray uvIndexArray;
 	int uvId;
-	int vertCnt;
+	//int vertCnt;
 	int newTris[6];
 	//For each polygon
-	for (int i = 0; i < mesh.numPolygons(); i++)
-	{
-		vertCnt = mesh.polygonVertexCount(i, &res);
-		if (res == MStatus::kSuccess)
-		{
-			MIntArray tempUVIndexArray;
-			//For each vertex in the polygon
-			for (int j = 0; j < vertCnt; j++)
-			{
-				mesh.getPolygonUVid(i, j, uvId);
-				tempUVIndexArray.append(uvId);
-			}
-			//"transform" it into triangles by... 
-			//first checking if the count of 
-			//vertices are more than 3.
-			//Then loop through the first three indices
-			//they are one triangle. The first and the third
-			//vertex will be used together with the fourth 
-			//vertex to build the second triangle. 
-			if (vertCnt == 4)
-			{
-				newTris[0] = tempUVIndexArray[0];
-				newTris[1] = tempUVIndexArray[1];
-				newTris[2] = tempUVIndexArray[2];
-				newTris[3] = tempUVIndexArray[0];
-				newTris[4] = tempUVIndexArray[2];
-				newTris[5] = tempUVIndexArray[3];
 
-				for (int i = 0; i < 6; i++)
-					uvIndexArray.append(newTris[i]);
-			}
-			if (vertCnt == 3)
-			{
-				for (int i = 0; i < 3; i++)
-					uvIndexArray.append(tempUVIndexArray[i]);
-			}
-		}
-	}
+	//for (int i = 0; i < mesh.numPolygons(); i++)
+	//{
+	//	vertCnt = mesh.polygonVertexCount(i, &res);
+	//	if (res == MStatus::kSuccess)
+	//	{
+	//		MIntArray tempUVIndexArray;
+	//		//For each vertex in the polygon
+	//		for (int j = 0; j < vertCnt; j++)
+	//		{
+	//			mesh.getPolygonUVid(i, j, uvId);
+	//			tempUVIndexArray.append(uvId);
+	//		}
+	//		//"transform" it into triangles by... 
+	//		//first checking if the count of 
+	//		//vertices are more than 3.
+	//		//Then loop through the first three indices
+	//		//they are one triangle. The first and the third
+	//		//vertex will be used together with the fourth 
+	//		//vertex to build the second triangle. 
+	//		if (vertCnt == 4)
+	//		{
+	//			newTris[0] = tempUVIndexArray[0];
+	//			newTris[1] = tempUVIndexArray[1];
+	//			newTris[2] = tempUVIndexArray[2];
+	//			newTris[3] = tempUVIndexArray[0];
+	//			newTris[4] = tempUVIndexArray[2];
+	//			newTris[5] = tempUVIndexArray[3];
+
+	//			for (int i = 0; i < 6; i++)
+	//				uvIndexArray.append(newTris[i]);
+	//		}
+	//		if (vertCnt == 3)
+	//		{
+	//			for (int i = 0; i < 3; i++)
+	//				uvIndexArray.append(tempUVIndexArray[i]);
+	//		}
+	//	}
+	//}
 
 	uvIndexArray.length();
 	allVert.size();
@@ -347,6 +385,7 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 {
 	//Maybe this is how you compare attrMessage? THis is how you compare messages... Odd
 	/*When you click on a face with move tool, you change an attribute named "uvPivot" */
+	MGlobal::displayInfo("I GOT CALLED! " + plug.name());
 	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 	{
 		MStatus res;
@@ -447,7 +486,10 @@ void fOnModelNodeRemoved (MObject &node, void *clientData)
 {
 	MGlobal::displayInfo("NODE REMOVED FROM MODEL!");
 }
-
+void fOnShit (MObject &node, void *clientData)
+{
+	MGlobal::displayInfo("SHIT!");
+}
 void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -458,22 +500,6 @@ void fMeshAddCbks(MObject& node, void* clientData)
         id = MNodeMessage::addAttributeChangedCallback(node, fOnMeshAttrChange, NULL, &res);
         if (res == MStatus::kSuccess)
             ids.append(id);
-
-        //id = MNodeMessage::addAttributeAddedOrRemovedCallback(node, fOnNodeAttrAddedRemoved, NULL, &res);
-        //if (res == MStatus::kSuccess)
-        //    ids.append(id);
-		//bool arr[4]{ false, false, true, false };
-		//bool shit = tr
-
-		//id = MPolyMessage::addPolyComponentIdChangedCallback(node, shit, 1, fOnComponentChange, NULL, &res);
-
-		//if (res == MStatus::kSuccess)
-		//{
-		//	ids.append(id);
-		//	MGlobal::displayInfo("addPolyComponentIdChanged SUcess!");
-		//}
-		//else
-		//	MGlobal::displayInfo(MString("WOLOLO ") + res.errorString());
 
         id = MPolyMessage::addPolyTopologyChangedCallback(node, fOnMeshTopoChange, NULL, &res);
         if (res == MStatus::kSuccess)
@@ -490,12 +516,23 @@ void fMeshAddCbks(MObject& node, void* clientData)
 			MGlobal::displayInfo("Delete SUcess!");
 			ids.append(id);
 		}
+		id = MNodeMessage::addNodePreRemovalCallback(node, fOnShit, NULL, &res);
+		if (res == MStatus::kSuccess)
+		{
+			ids.append(id);
+			MGlobal::displayInfo("addNodePreRemoval Sucess!");
+		}
 
 		id = MModelMessage::addNodeRemovedFromModelCallback(node, fOnModelNodeRemoved, NULL, &res);
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
 			MGlobal::displayInfo("Delete SUcess!");
+		}
+		id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+		if (res == MStatus::kSuccess)
+		{
+			ids.append(id);
 		}
 		//MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
 	}
@@ -670,9 +707,11 @@ MObject fFindMaterialConnected(MObject node)
 
 	if (node.hasFn(MFn::kMesh))
 	{
-		MDagPath dp = MDagPath::getAPathTo(node);
+		MFnMesh fnMesh(node, &res);
 
-		MFnMesh fnMesh(dp, &res);
+		MDagPath dp;
+
+		fnMesh.getPath(dp);
 
 		unsigned int instNum = dp.instanceNumber();
 
@@ -728,72 +767,98 @@ void fMakeMaterialMessage(hMaterialHeader hMaterial)
 
 	HMainHead.materialCount = 1;
 
-	int totalSize = mainMem + materialMem;
 	hMaterial.numConnectedMeshes = hMaterial.connectMeshList.size();
 
-	mtx.lock();
-	memcpy(msg, (void*)&HMainHead, mainMem);
-	memcpy(msg + mainMem, (void*)&hMaterial, materialMem);
-
-	int prevSize = 0;
-	for (int i = 0; i < hMaterial.connectMeshList.size(); i++)
+	if (hMaterial.isTexture == false)
 	{
-		memcpy(msg + mainMem + materialMem + prevSize, &hMaterial.connectMeshList[i], sizeof(hMeshConnectMaterialHeader));
-		memcpy(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize, (char*)hMaterial.connectMeshList[i].connectMeshName, hMaterial.connectMeshList[i].connectMeshNameLength - 1);
-		*(char*)(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize + hMaterial.connectMeshList[i].connectMeshNameLength - 1) = '\0';
+		int totalSize = mainMem + materialMem;
 
-		prevSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+		mtx.lock();
+		memcpy(msg, (void*)&HMainHead, mainMem);
+		memcpy(msg + mainMem, (void*)&hMaterial, materialMem);
 
-		totalSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+		int prevSize = 0;
+		for (int i = 0; i < hMaterial.connectMeshList.size(); i++)
+		{
+			memcpy(msg + mainMem + materialMem + prevSize, &hMaterial.connectMeshList[i], sizeof(hMeshConnectMaterialHeader));
+			memcpy(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize, (char*)hMaterial.connectMeshList[i].connectMeshName, hMaterial.connectMeshList[i].connectMeshNameLength - 1);
+			*(char*)(msg + mainMem + materialMem + sizeof(hMeshConnectMaterialHeader) + prevSize + hMaterial.connectMeshList[i].connectMeshNameLength - 1) = '\0';
+
+			prevSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+
+			totalSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+		}
+
+		producer->runProducer(gCb, msg, totalSize);
+		mtx.unlock();
 	}
 
-	producer->runProducer(gCb, msg, totalSize);
-	mtx.unlock();
+	else
+	{
+		int totalSize = mainMem + materialMem + hMaterial.colorMapLength;
+
+		mtx.lock();
+		memcpy(msg, (void*)&HMainHead, mainMem);
+		memcpy(msg + mainMem, (void*)&hMaterial, materialMem);
+		memcpy(msg + mainMem + materialMem, (void*)hMaterial.colorMap, hMaterial.colorMapLength - 1);
+		*(char*)(msg + mainMem + materialMem + hMaterial.colorMapLength - 1) = '\0';
+
+		int prevSize = 0;
+		for (int i = 0; i < hMaterial.connectMeshList.size(); i++)
+		{
+			memcpy(msg + mainMem + materialMem + hMaterial.colorMapLength + prevSize, &hMaterial.connectMeshList[i], sizeof(hMeshConnectMaterialHeader));
+			memcpy(msg + mainMem + materialMem + hMaterial.colorMapLength + sizeof(hMeshConnectMaterialHeader) + prevSize, (char*)hMaterial.connectMeshList[i].connectMeshName, hMaterial.connectMeshList[i].connectMeshNameLength - 1);
+			*(char*)(msg + mainMem + materialMem + hMaterial.colorMapLength + sizeof(hMeshConnectMaterialHeader) + prevSize + hMaterial.connectMeshList[i].connectMeshNameLength - 1) = '\0';
+
+			prevSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+
+			totalSize += sizeof(hMeshConnectMaterialHeader) + hMaterial.connectMeshList[i].connectMeshNameLength;
+		}
+
+		producer->runProducer(gCb, msg, totalSize);
+		mtx.unlock();
+	}
 }
 
-void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
+void fFindMeshConnectedToMaterial(MObject shaderNode, hMaterialHeader& hMaterial)
 {
-	if (attrMessage & MNodeMessage::kAttributeSet)
+	MStatus res;
+	hMeshConnectMaterialHeader hMeshMaterial;
+
+	/*Find the all the connections with the shader and store in an array.*/
+	MPlugArray connectionsToShader;
+
+	MPlug outColorPlug = MFnDependencyNode(shaderNode).findPlug("outColor", &res);
+
+	outColorPlug.connectedTo(connectionsToShader, false, true, &res);
+
+	if (connectionsToShader.length())
 	{
-		MStatus res;
-		MObject tempData;
-		float rgb[3];
-
-		hMaterialHeader hMaterial;
-		hMeshConnectMaterialHeader hMeshMaterial;
-
-		/*Find the all the connections with the shader and store in an array.*/
-		MPlugArray connectionsToShader;
-
-		MPlug outColorPlug = MFnDependencyNode(plug.node()).findPlug("outColor", &res);
-
-		outColorPlug.connectedTo(connectionsToShader, false, true, &res);
-
-		if (connectionsToShader.length())
+		for (int connectIndex = 0; connectIndex < connectionsToShader.length(); connectIndex++)
 		{
-			for (int connectIndex = 0; connectIndex < connectionsToShader.length(); connectIndex++)
+			if (connectionsToShader[connectIndex].node().hasFn(MFn::kShadingEngine))
 			{
-				if (connectionsToShader[connectIndex].node().hasFn(MFn::kShadingEngine))
+				MFnDependencyNode shadingNode;
+				shadingNode.setObject(connectionsToShader[connectIndex].node());
+
+				MGlobal::displayInfo(shadingNode.name());
+
+				MPlug dagSetMemberPlug = shadingNode.findPlug("dagSetMembers", &res);
+
+				MPlugArray connectionsToSG;
+
+				for (int dagSetIndex = 0; dagSetIndex < dagSetMemberPlug.numConnectedElements(); dagSetIndex++)
 				{
-					MFnDependencyNode shadingNode;
-					shadingNode.setObject(connectionsToShader[connectIndex].node());
+					dagSetMemberPlug[dagSetIndex].connectedTo(connectionsToSG, true, false, &res);
 
-					MGlobal::displayInfo(shadingNode.name());
-
-					MPlug dagSetMemberPlug = shadingNode.findPlug("dagSetMembers", &res);
-
-					MPlugArray connectionsToSG;
-
-					for (int dagSetIndex = 0; dagSetIndex < dagSetMemberPlug.numConnectedElements(); dagSetIndex++)
+					if (connectionsToSG.length())
 					{
-						dagSetMemberPlug[dagSetIndex].connectedTo(connectionsToSG, true, false, &res);
-
-						if (connectionsToSG.length())
+						for (int meshIndex = 0; meshIndex < connectionsToSG.length(); meshIndex++)
 						{
-							for (int meshIndex = 0; meshIndex < connectionsToSG.length(); meshIndex++)
-							{
-								MFnMesh mesh(connectionsToSG[meshIndex].node());
+							MFnMesh mesh(connectionsToSG[meshIndex].node());
 
+							if (mesh.name() != "shaderBallGeomShape1")
+							{
 								MGlobal::displayInfo(mesh.name());
 
 								hMeshMaterial.connectMeshName = mesh.name().asChar();
@@ -806,6 +871,21 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 				}
 			}
 		}
+	}
+}
+
+void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
+{
+	if (attrMessage & MNodeMessage::kAttributeSet || plug.node().hasFn(MFn::kLambert)
+		|| plug.node().hasFn(MFn::kBlinn) || plug.node().hasFn(MFn::kPhong))
+	{
+		MStatus res;
+		MObject tempData;
+		float rgb[3];
+
+		hMaterialHeader hMaterial;
+
+		fFindMeshConnectedToMaterial(plug.node(), hMaterial);
 
 		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
 		if (res == MStatus::kSuccess)
@@ -838,6 +918,37 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 					MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
 					MString("B: ") + hMaterial.diffuseColor[2]);
 			}
+		}
+
+		MItDependencyGraph colorTexIt(colorPlug, MFn::kFileTexture, MItDependencyGraph::kUpstream);
+
+		while (!colorTexIt.isDone())
+		{
+			MFnDependencyNode texture(colorTexIt.currentItem());
+
+			MPlug colorTexturePlug = texture.findPlug("fileTextureName", &res);
+			if (res == MStatus::kSuccess)
+			{
+				MString filePathName;
+
+				colorTexturePlug.getValue(filePathName);
+
+				if (filePathName.numChars() > 0)
+				{
+					MGlobal::displayInfo(filePathName);
+
+					hMaterial.colorMap = filePathName.asChar();
+					hMaterial.colorMapLength = filePathName.length() + 1;
+					hMaterial.isTexture = true;
+				}
+
+				else
+				{
+					hMaterial.isTexture = false;
+				}
+			}
+
+			colorTexIt.next();
 		}
 
 		MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
@@ -896,38 +1007,40 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 
 void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
 {
-	MStatus res;
-
-	MObject set = fFindMaterialConnected(plug.node());
-
-	MObject shaderNode = fFindShader(set);
-
-	if (shaderNode != MObject::kNullObj)
+	if (attrMessage & MNodeMessage::AttributeMessage::kConnectionMade | MNodeMessage::AttributeMessage::kConnectionBroken)
 	{
-		MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
+		MGlobal::displayInfo(plug.name() + " " + otherPlug.name());
+		MStatus res;
 
-		if (res == MStatus::kSuccess)
-		{
-			ids.append(id);
-		}
+		fLoadMaterial(plug.node());
 	}
 }
 
-void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
+void fLoadMaterial(MObject& node)
 {
 	MStatus res;
 	MObject tempData;
 	float rgb[3];
 
 	hMaterialHeader hMaterial;
-	hMeshConnectMaterialHeader hMeshMaterial;
 
-	hMeshMaterial.connectMeshName = mesh.name().asChar();
-	hMeshMaterial.connectMeshNameLength = mesh.name().length() + 1;
+	MObject connectedSet;
+	MObject	connectedShader;
 
-	hMaterial.connectMeshList.push_back(hMeshMaterial);
+	if (node.hasFn(MFn::kMesh))
+	{
+		connectedSet = fFindMaterialConnected(node);
+		connectedShader = fFindShader(connectedSet);
+	}
 
-	MPlug colorPlug = MFnDependencyNode(shaderNode).findPlug("color", &res);
+	else if (node.hasFn(MFn::kLambert) || node.hasFn(MFn::kBlinn) || node.hasFn(MFn::kPhong))
+	{
+		connectedShader = node;
+	}
+
+	fFindMeshConnectedToMaterial(connectedShader, hMaterial);
+
+	MPlug colorPlug = MFnDependencyNode(connectedShader).findPlug("color", &res);
 	if (res == MStatus::kSuccess)
 	{
 		if (res == MStatus::kSuccess)
@@ -943,7 +1056,7 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 			hMaterial.diffuseColor[3] = 1.0f;
 		}
 
-		MPlug diffusePlug = MFnDependencyNode(shaderNode).findPlug("diffuse", &res);
+		MPlug diffusePlug = MFnDependencyNode(connectedShader).findPlug("diffuse", &res);
 		if (res == MStatus::kSuccess)
 		{
 			float diffExp;
@@ -960,7 +1073,39 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 		}
 	}
 
-	MPlug ambientPlug = MFnDependencyNode(shaderNode).findPlug("ambientColor", &res);
+	MItDependencyGraph colorTexIt(colorPlug, MFn::kFileTexture, MItDependencyGraph::kUpstream);
+
+	while (!colorTexIt.isDone())
+	{
+		MFnDependencyNode texture(colorTexIt.currentItem());
+
+		MPlug colorTexturePlug = texture.findPlug("fileTextureName", &res);
+
+		if (res == MStatus::kSuccess)
+		{
+			MString filePathName;
+
+			colorTexturePlug.getValue(filePathName);
+
+			if (filePathName.numChars() > 0)
+			{
+				MGlobal::displayInfo(filePathName);
+
+				hMaterial.colorMap = filePathName.asChar();
+				hMaterial.colorMapLength = filePathName.length() + 1;
+				hMaterial.isTexture = true;
+			}
+
+			else
+			{
+				hMaterial.isTexture = false;
+			}
+		}
+
+		colorTexIt.next();
+	}
+
+	MPlug ambientPlug = MFnDependencyNode(connectedShader).findPlug("ambientColor", &res);
 	if (res == MStatus::kSuccess)
 	{
 		ambientPlug.getValue(tempData);
@@ -978,9 +1123,9 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 			MString("B: ") + rgb[2]);
 	}
 
-	if (shaderNode.hasFn(MFn::kPhong) || shaderNode.hasFn(MFn::kBlinn))
+	if (connectedShader.hasFn(MFn::kPhong) || connectedShader.hasFn(MFn::kBlinn))
 	{
-		MPlug specularPlug = MFnDependencyNode(shaderNode).findPlug("specularColor", &res);
+		MPlug specularPlug = MFnDependencyNode(connectedShader).findPlug("specularColor", &res);
 		if (res == MStatus::kSuccess)
 		{
 			specularPlug.getValue(tempData);
@@ -1000,7 +1145,7 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 	}
 
 	/*The material is kLambert, assign zero to specular.*/
-	else if (shaderNode.hasFn(MFn::kLambert))
+	else if (connectedShader.hasFn(MFn::kLambert))
 	{
 		/*Set specular to zero in RGB.*/
 		MGlobal::displayInfo(MString("No specular for kLambert!"));
@@ -1012,39 +1157,6 @@ void fLoadActiveMaterial(MObject& shaderNode, MFnMesh& mesh)
 
 	fMakeMaterialMessage(hMaterial);
 }
-
-void fGetMeshMaterial(MObject& node)
-{
-	MStatus res;
-
-	if (node.hasFn(MFn::kMesh))
-	{
-		MFnMesh meshFn(node);
-		/*register callback when a mesh changes material.*/
-		MCallbackId id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, &node, &res);
-		if (res == MStatus::kSuccess)
-		{
-			ids.append(id);
-		}
-
-		MObject set = fFindMaterialConnected(node);
-
-		MObject shaderNode = fFindShader(set);
-
-		fLoadActiveMaterial(shaderNode, meshFn);
-
-		if (shaderNode != MObject::kNullObj)
-		{
-			MCallbackId id = MNodeMessage::addAttributeChangedCallback(shaderNode, fOnMaterialAttrChanges, NULL, &res);
-
-			if (res == MStatus::kSuccess)
-			{
-				ids.append(id);
-			}
-		}
-	}
-}
-
 
 void fDagNodeAddCbks(MObject& node, void* clientData)
 {
@@ -1267,6 +1379,24 @@ void fTransAddCbks(MObject& node, void* clientData)
 		}
 }
 
+void fMaterialAddCbks(MObject node, void* clientData)
+{
+	MStatus res;
+	MCallbackId id;
+
+	id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialAttrChanges, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		ids.append(id);
+	}
+
+	/*id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+	ids.append(id);
+	}*/
+}
+
 void fOnNodeCreate(MObject& node, void *clientData)
 {
     eNodeType nt = eNodeType::notHandledNode;
@@ -1289,6 +1419,10 @@ void fOnNodeCreate(MObject& node, void *clientData)
     {
         nt = eNodeType::dagNode; MGlobal::displayInfo("NODE!");
     }
+	else if (node.hasFn(MFn::kLambert) || node.hasFn(MFn::kBlinn) || node.hasFn(MFn::kPhong))
+	{
+		nt = eNodeType::materialNode; MGlobal::displayInfo("MATERIAL!");
+	}
 
     switch (nt)
     {
@@ -1301,6 +1435,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
                 //This gets called when the move tool is selected, for some reason
 				MGlobal::displayInfo("MESH NODE CREATED!");
 				fMakeMeshMessage(node, false);
+				fLoadMaterial(node);
             }
             break;
         }
@@ -1331,6 +1466,15 @@ void fOnNodeCreate(MObject& node, void *clientData)
                 fDagNodeAddCbks(node, clientData);
             break;
         }
+		case(eNodeType::materialNode):
+		{
+			MFnDependencyNode materialFn(node, &res);
+			if (res == MStatus::kSuccess)
+			{
+				fMaterialAddCbks(node, clientData);
+			}
+			break;
+		}
         case(eNodeType::notHandledNode):
         {
             break;
@@ -1456,8 +1600,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
     producer->runProducer(gCb, (char*)msg, totPackageSize);
 	mtx.unlock();
-
-	fGetMeshMaterial(obj);
 }
 
 void fMakeCameraMessage(hCameraHeader& gCam)
@@ -1556,25 +1698,35 @@ void fMakeGenericMessage()
 
 void fIterateScene()
 {
-    MStatus res;
-    MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
+	MStatus res;
+	MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
 
-    if (res == MStatus::kSuccess)
-    {
-		int aids = 1337;
-        while (!nodeIt.isDone())
-        {
+	if (res == MStatus::kSuccess)
+	{
+		while (!nodeIt.isDone())
+		{
 			/*
-			If this function is called by iterateScene, 
-			save all transforms in a queue that you 
-			loop through after this node iteration is done. 
+			If this function is called by iterateScene,
+			save all transforms in a queue that you
+			loop through after this node iteration is done.
 			That way all of the possible children
 			(except transforms) are present in the scene.
 			*/
-			fOnNodeCreate(nodeIt.currentItem(), &aids);
+			fOnNodeCreate(nodeIt.currentItem(), NULL);
 			nodeIt.next();
-        }
-    }
+		}
+	}
+	//Think about adding the mesh-callbacks like "OnGeometryChange" with this iterator
+	MItDependencyNodes dependNodeIt(MFn::kLambert, &res);
+
+	if (res == MStatus::kSuccess)
+	{
+		while (!dependNodeIt.isDone())
+		{
+			fOnNodeCreate(dependNodeIt.item(), NULL);
+			dependNodeIt.next();
+		}
+	}
 }
 
 void fMakeRemovedMessage(MObject& node, eNodeType nodeType)

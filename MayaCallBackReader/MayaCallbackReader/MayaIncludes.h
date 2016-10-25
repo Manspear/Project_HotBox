@@ -8,6 +8,7 @@
 
 /*Manually added!*/
 #include <maya/MFnAttribute.h>
+#include <maya/MItDependencyGraph.h>
 /*Franco includes begin!*/
 #include <maya/MFnPlugin.h>
 #include <maya/MFnMesh.h>

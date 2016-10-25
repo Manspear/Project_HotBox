@@ -13,7 +13,8 @@ enum eNodeType
 	pointLightNode,
 	cameraNode,
 	notHandledNode,
-	dependencyNode
+	dependencyNode,
+	materialNode
 };
 
 /*Put the headers here.*/
@@ -123,9 +124,10 @@ struct hMaterialHeader
 	float diffuseColor[3];
 	float specular[3];
 
-	/*char normalMap[256];
-	char diffuseMap[256];
-	char specularMap[256];*/
+	const char* colorMap;
+	unsigned int colorMapLength;
+
+	bool isTexture = false;
 };
 
 #endif MAYAHEADER_H

@@ -226,7 +226,6 @@ void HMessageReader::fRefreshMeshNode(hVertexHeader* vertList,
 	nd->setDrawable(meshModel);
 
 	scene->addNode(nd);
-	
 }
 
 void HMessageReader::fCreateNewMeshNode(char* meshName, hVertexHeader* vertList, 
@@ -439,11 +438,27 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 	materialHeader->connectMeshList.resize(materialHeader->numConnectedMeshes);
 
+	if (materialHeader->isTexture == true)
+	{
+		materialHeader->colorMap = (char*)((char*)messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader));
+	}
+
 	int prevSize = 0;
 
 	for (int i = 0; i < materialHeader->connectMeshList.size(); i++)
 	{
-		hMeshConnectMaterialHeader* hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + prevSize);
+		hMeshConnectMaterialHeader* hConnectMaterial;
+
+		if (materialHeader->isTexture == true)
+		{
+			hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + materialHeader->colorMapLength + prevSize);
+		}
+
+		else
+		{
+			hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + prevSize);
+		}
+
 		hConnectMaterial->connectMeshName = (char*)((char*)hConnectMaterial + sizeof(hMeshConnectMaterialHeader));
 
 		prevSize += sizeof(hMeshConnectMaterialHeader) + hConnectMaterial->connectMeshNameLength;
@@ -453,14 +468,30 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 		if (meshNode != NULL)
 		{
 			gameplay::Model* meshModel = static_cast<gameplay::Model*>(meshNode->getDrawable());
+			gameplay::Material* material;
+			gameplay::Texture::Sampler* colorTexture;
 
-			gameplay::Material* material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
+			if (materialHeader->isTexture == true)
+			{
+				material = meshModel->setMaterial("res/shaders/textured.vert", "res/shaders/textured.frag", "POINT_LIGHT_COUNT 1");
+
+				/*Gameplay3D being retarded because you can't send jpg texture files when creating sampler.*/
+				colorTexture = gameplay::Texture::Sampler::create(materialHeader->colorMap, false);
+
+				colorTexture->setFilterMode(Texture::LINEAR, Texture::LINEAR);
+				colorTexture->setWrapMode(Texture::CLAMP, Texture::CLAMP);
+			}
+
+			else
+			{
+				material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
+			}
 
 			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
 			block->setCullFace(true);
 			block->setDepthTest(false);
 			block->setDepthWrite(true);
-			//block->setFrontFace(gameplay::RenderState::FrontFace::FRONT_FACE_CW);
+			block->setStencilTest(true);
 
 			material->setStateBlock(block);
 
@@ -475,10 +506,16 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 			material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
 
 			material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
-			material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1],
-				materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
 
-			//newMaterial->getParameter("u_specularColor")->setValue(materialHeader->specular);
+			if (materialHeader->isTexture == true)
+			{
+				material->getParameter("u_diffuseTexture")->setValue(colorTexture);
+			}
+
+			else
+			{
+				material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1], materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
+			}
 
 			meshModel->setMaterial(material);
 		}
