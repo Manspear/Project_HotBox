@@ -205,22 +205,23 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
     /*FUCK INDEXING! LET'S DO IT THE SHITTY WAY!!!*/
     MStatus res;
-   // MIntArray triCnt;
+    MIntArray triCnt;
     MIntArray triVert; //vertex Ids for each tri vertex
 
     const float * rwPnts = mesh.getRawPoints(&res);
     const float * rwNrmls = mesh.getRawNormals(&res);
 	
-	MIntArray vertCnt;
+	MIntArray vertexCount;
 	//Indices for raw pnts //polygon lvl // 24 for cube
 	MIntArray vertList;
-	mesh.getVertices(vertCnt, vertList);
+	mesh.getVertices(vertexCount, vertList);
 	//Now get indices for vertList!
 	//triIndices index into the vertList!
-	MIntArray triCnt;
+	MIntArray triCount;
 	MIntArray triIndices;
-	mesh.getTriangleOffsets(triCnt, triIndices);
-	
+	mesh.getTriangleOffsets(triCount, triIndices);
+
+
 	//Now put the vertex data into per-polygon arrays!
 	//for (int i = 0; i < mesh.numPolygons(); i++)
 	//{
@@ -229,29 +230,42 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
 	//	}
 	//}
-	for (int i = 0; i < triIndices.length(); i++)
+	/*for (int i = 0; i < triIndices.length(); i++)
 	{
 		sBuiltVertex vert;
 		sPoint pnt;
 		pnt.x = rwPnts[vertList[triIndices[i] + (i * 3)]];
 		pnt.y = rwPnts[vertList[triIndices[i] + (i * 3) + 1]];
 		pnt.z = rwPnts[vertList[triIndices[i] + (i * 3) + 2]];
-		
+	}*/
+	//std::vector<sBuiltVertex> allVert;
 
+	MPointArray pntArr;
+	MVector tempVec;
+	MPoint tempPoint;
+	mesh.getTriangles(triCnt, triVert);
+	allVert.resize(triVert.length());
+
+	//mesh.getUVs() 
+	//mesh.getAssignedUVs()
+	MStringArray uvSetNames;
+	mesh.getUVSetNames(uvSetNames);
+
+	MFloatArray u;
+	MFloatArray v;
+	mesh.getUVs(u, v);
+	MIntArray uvCount;
+	MIntArray uvIDs;
+	mesh.getAssignedUVs(uvCount, uvIDs, &uvSetNames[0]);
+	
+	for (int i = 0; i < allVert.size(); i++)
+	{
+		sUV uv;
+		uv.u = u[uvIDs[triIndices[i]]];
+		uv.v = v[uvIDs[triIndices[i]]];
+		allVert[i].uv = uv;
 	}
 
-	//mesh.getUVs() gives u
-	//mesh.getAssignedUVs() gives u 
-    MStringArray uvSetNames;
-    mesh.getUVSetNames(uvSetNames);
-	
-
-    //std::vector<sBuiltVertex> allVert;
-    MPointArray pntArr;
-    MVector tempVec;
-    MPoint tempPoint;
-    mesh.getTriangles(triCnt, triVert);
-    allVert.resize(triVert.length());
     for (int i = 0; i < allVert.size(); i++)
     {
         mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);  //<-- These used!
@@ -294,14 +308,14 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
  //       } 
  //   }
 
-	MFloatArray u;
-	MFloatArray v;
-	mesh.getUVs(u, v, &uvSetNames[0]);
-	MIntArray uvIndexArray;
-	int uvId;
+	//MFloatArray u;
+	//MFloatArray v;
+	//mesh.getUVs(u, v, &uvSetNames[0]);
+	//MIntArray uvIndexArray;
+	//int uvId;
 	//int vertCnt;
-	int newTris[6];
-	//For each polygon
+	//int newTris[6];
+	////For each polygon
 
 	//for (int i = 0; i < mesh.numPolygons(); i++)
 	//{
@@ -342,19 +356,19 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 	//	}
 	//}
 
-	uvIndexArray.length();
-	allVert.size();
-	MGlobal::displayInfo(MString("POOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO uvIndexArray: ") + MString("") + uvIndexArray.length() + MString("ALLVERTASDDDDDDDDDDDDDDDD ") + allVert.size());
+	//uvIndexArray.length();
+	//allVert.size();
+	//MGlobal::displayInfo(MString("POOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO uvIndexArray: ") + MString("") + uvIndexArray.length() + MString("ALLVERTASDDDDDDDDDDDDDDDD ") + allVert.size());
 	//uvIndexarray is size 24. allVert is size 36. How to "sync" them?
 	//The indexes should be set up in a similar manner across all attributes...
 	//But not UVs. They are special MFers.
-    for (int i = 0; i < allVert.size(); i++)
-    {
-        mesh.getUV(uvIndexArray[i], allVert[i].uv.u, allVert[i].uv.v, &uvSetNames[0]);
-    }
-    MFloatArray uArr;
-    MFloatArray vArr;
-    mesh.getUVs(uArr, vArr, &uvSetNames[0]);
+    //for (int i = 0; i < allVert.size(); i++)
+    //{
+    //    mesh.getUV(uvIndexArray[i], allVert[i].uv.u, allVert[i].uv.v, &uvSetNames[0]);
+    //}
+    //MFloatArray uArr;
+    //MFloatArray vArr;
+    //mesh.getUVs(uArr, vArr, &uvSetNames[0]);
 }
 
 /*
@@ -379,16 +393,16 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
     }
 }
 
-
-
 void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, MPlug &otherPlug, void *clientData)
 {
 	//Maybe this is how you compare attrMessage? THis is how you compare messages... Odd
 	/*When you click on a face with move tool, you change an attribute named "uvPivot" */
 	MGlobal::displayInfo("I GOT CALLED! " + plug.name());
+
+	MStatus res;
+
 	if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet)
 	{
-		MStatus res;
 		MObject temp = plug.node();
 
 		MFnMesh meshFn(temp, &res);
@@ -396,6 +410,19 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 		if (res == MStatus::kSuccess)
 		{
 			fMakeMeshMessage(temp, false);
+		}
+	}
+
+	else if (attrMessage & MNodeMessage::AttributeMessage::kConnectionMade | MNodeMessage::AttributeMessage::kConnectionBroken)
+	{
+		MFnMesh meshFn(plug.node(), &res);
+
+		if (res == MStatus::kSuccess)
+		{
+			if (plug.name() == MString(meshFn.name() + ".instObjGroups[0]"))
+			{
+				fLoadMaterial(plug.node());
+			}
 		}
 	}
 }
@@ -529,16 +556,14 @@ void fMeshAddCbks(MObject& node, void* clientData)
 			ids.append(id);
 			MGlobal::displayInfo("Delete SUcess!");
 		}
-		id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
+		/*id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
 		if (res == MStatus::kSuccess)
 		{
 			ids.append(id);
-		}
+		}*/
 		//MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
 	}
 }
-
-
 
 void fLoadCamera()
 {
@@ -1698,26 +1723,29 @@ void fMakeGenericMessage()
 
 void fIterateScene()
 {
-	MStatus res;
-	MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
+	//MStatus res;
+	//MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
 
-	if (res == MStatus::kSuccess)
-	{
-		while (!nodeIt.isDone())
-		{
-			/*
-			If this function is called by iterateScene,
-			save all transforms in a queue that you
-			loop through after this node iteration is done.
-			That way all of the possible children
-			(except transforms) are present in the scene.
-			*/
-			fOnNodeCreate(nodeIt.currentItem(), NULL);
-			nodeIt.next();
-		}
-	}
+	//if (res == MStatus::kSuccess)
+	//{
+	//	while (!nodeIt.isDone())
+	//	{
+	//		/*
+	//		If this function is called by iterateScene,
+	//		save all transforms in a queue that you
+	//		loop through after this node iteration is done.
+	//		That way all of the possible children
+	//		(except transforms) are present in the scene.
+	//		*/
+	//		fOnNodeCreate(nodeIt.currentItem(), NULL);
+	//		nodeIt.next();
+	//	}
+	//}
+
+	MStatus res;
+
 	//Think about adding the mesh-callbacks like "OnGeometryChange" with this iterator
-	MItDependencyNodes dependNodeIt(MFn::kLambert, &res);
+	MItDependencyNodes dependNodeIt(MFn::kDependencyNode, &res);
 
 	if (res == MStatus::kSuccess)
 	{
