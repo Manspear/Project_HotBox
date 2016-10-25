@@ -424,18 +424,13 @@ void HMessageReader::fSaveHierarchy(char * messageData, hHierarchyHeader* hiH)
 	hierarchyQueue.push(lhie);
 }
 
-void HMessageReader::fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene)
+void HMessageReader::fProcessQueues(gameplay::Scene* scene)
 {
-	//if (tranQ.size() > 0)
-	//{
-	//	gameplay::Node* nd = scene->findNode(tranQ.front().childName + '\0');
-	//	if (nd != NULL)
-	//	{
-	//		fModifyNodeTransform(tranQ.front(), nd, scene);
-	//		//delete[] tranQ.front().childName;
-	//		tranQ.pop();
-	//	}
-	//}
+	/*Looping through queues.*/
+	fProcessTransformQueue(scene);
+	/*This needs to be laid after fRead. Otherwise odd hierarchy stuff happen, probably because of
+	removeMessage*/
+	fProcessHierarchyQueue(scene);
 }
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)

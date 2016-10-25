@@ -60,7 +60,7 @@ public:
 	/*
 	This function should preferably be called once per 60 or 30 fps
 	*/
-	void fProcessQueues(circularBuffer& circBuff, gameplay::Scene* scene);
+	void fProcessQueues(gameplay::Scene* scene);
 
 	/*Functions for processing deleted nodes*/
 	void fProcessDeletedObject(char* messageData, gameplay::Scene* scene);

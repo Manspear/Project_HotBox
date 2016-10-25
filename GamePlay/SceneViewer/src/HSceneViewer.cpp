@@ -65,11 +65,11 @@ void HSceneViewer::update(float elapsedTime)
 	/*Get the information we send from the Maya plugin here.*/
 	msgReader->fRead(msgReader->circBuff, _scene);
 
-	/*Looping through queues.*/
-	msgReader->fProcessTransformQueue(_scene);
-	/*This needs to be laid after fRead. Otherwise odd hierarchy stuff happen, probably because of 
-	removeMessage*/
-	msgReader->fProcessHierarchyQueue(_scene);
+	/*
+	Processing the queues of objects not found in the scene to check if they're in the scene
+	This function is not called that often. This function MUST be placed after the fRead function.
+	*/
+	msgReader->fProcessQueues(_scene);
 }
 
 void HSceneViewer::render(float elapsedTime)
