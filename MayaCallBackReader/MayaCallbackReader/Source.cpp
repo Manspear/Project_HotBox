@@ -39,6 +39,8 @@ float gDt30Fps;
 bool firstActiveCam = true;
 bool firstMaterial = true;
 
+int lightCounter = 0;
+
 char* msg;
 
 struct sPoint
@@ -556,12 +558,6 @@ void fMeshAddCbks(MObject& node, void* clientData)
 			ids.append(id);
 			MGlobal::displayInfo("Delete SUcess!");
 		}
-		/*id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
-		if (res == MStatus::kSuccess)
-		{
-			ids.append(id);
-		}*/
-		//MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
 	}
 }
 
@@ -581,9 +577,6 @@ void fLoadCamera()
 		if (res == MStatus::kSuccess)
 		{
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
-
-			projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-			projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 			hCam.cameraName = camFn.name().asChar();
@@ -638,9 +631,6 @@ void fCameraChanged(const MString &str, void* clientData)
 				MMatrix newMat = fnTransform.transformationMatrix();
 
 				MFloatMatrix projMatrix = camFn.projectionMatrix();
-
-				projMatrix.matrix[2][2] = -projMatrix.matrix[2][2];
-				projMatrix.matrix[3][2] = -projMatrix.matrix[3][2];
 
 				static MFloatMatrix oldProjMatrix = projMatrix;
 
@@ -1422,6 +1412,102 @@ void fMaterialAddCbks(MObject node, void* clientData)
 	}*/
 }
 
+void fMakeLightMessage(hLightHeader hLight)
+{
+	MGlobal::displayInfo("LightMsg!");
+
+	hMainHeader hMainHead;
+	hMainHead.lightCount = 1;
+	size_t mainMem = sizeof(hMainHead);
+	size_t lightMem = sizeof(hLightHeader);
+
+	int totalSize = mainMem + lightMem + hLight.lightNameLength;
+
+	mtx.lock();
+	memcpy(msg, (void*)&hMainHead, mainMem);
+	memcpy(msg + mainMem, (void*)&hLight, lightMem);
+	memcpy(msg + mainMem + lightMem, (void*)hLight.lightName, hLight.lightNameLength - 1);
+	*(char*)(msg + mainMem + lightMem + hLight.lightNameLength - 1) = '\0';
+
+	producer->runProducer(gCb, msg, totalSize);
+	mtx.unlock();
+}
+
+void fOnLightAttributeChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
+{
+	MStatus res;
+
+	MFnPointLight pointLightFn(plug.node(), &res);
+	if (res == MStatus::kSuccess)
+	{
+		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet &&
+			attrMessage & MNodeMessage::AttributeMessage::kIncomingDirection &&
+			plug.name() == MString(pointLightFn.name() + ".color") ||
+			plug.name() == MString(pointLightFn.name() + ".intensity"))
+		{
+			hLightHeader hLight;
+
+			MColor lightColor = pointLightFn.color(&res);
+			float intensity = pointLightFn.intensity(&res);
+
+			hLight.color[0] = lightColor.r * intensity;
+			hLight.color[1] = lightColor.g * intensity;
+			hLight.color[2] = lightColor.b * intensity;
+
+			MGlobal::displayInfo(MString("R: ") + hLight.color[0]);
+			MGlobal::displayInfo(MString("G: ") + hLight.color[1]);
+			MGlobal::displayInfo(MString("B: ") + hLight.color[2]);
+
+			hLight.lightName = pointLightFn.name().asChar();
+			hLight.lightNameLength = pointLightFn.name().length() + 1;
+
+			/*Light Id already exists in gameplay3D. Assign default value.*/
+			hLight.lightId = 1137;
+
+			fMakeLightMessage(hLight);
+		}
+	}
+}
+
+void fLightAddCbks(MObject node, void* clientData)
+{
+	MStatus res;
+	MCallbackId id;
+
+	id = MNodeMessage::addAttributeChangedCallback(node, fOnLightAttributeChanges, NULL, &res);
+	if (res == MStatus::kSuccess)
+	{
+		ids.append(id);
+	}
+}
+
+void fLoadLight(MObject lightNode)
+{
+	MStatus res;
+
+	MFnPointLight pointLightFn(lightNode, &res);
+
+	if (res == MStatus::kSuccess)
+	{
+		hLightHeader hLight;
+
+		MColor lightColor = pointLightFn.color(&res);
+		float intensity = pointLightFn.intensity(&res);
+
+		hLight.color[0] = lightColor.r * intensity;
+		hLight.color[1] = lightColor.g * intensity;
+		hLight.color[2] = lightColor.b * intensity; 
+
+		hLight.lightName = pointLightFn.name().asChar();
+		hLight.lightNameLength = pointLightFn.name().length() + 1;
+		hLight.lightId = lightCounter;
+
+		fMakeLightMessage(hLight);
+
+		lightCounter++;
+	}
+}
+
 void fOnNodeCreate(MObject& node, void *clientData)
 {
     eNodeType nt = eNodeType::notHandledNode;
@@ -1489,6 +1575,18 @@ void fOnNodeCreate(MObject& node, void *clientData)
             MFnDagNode dagFn(node, &res);
             if (res == MStatus::kSuccess)
                 fDagNodeAddCbks(node, clientData);
+
+			MDagPath lightPath;
+			if (dagFn.getPath(lightPath))
+			{
+				if (lightPath.node().hasFn(MFn::kPointLight))
+				{
+					MGlobal::displayInfo("POINTLIGHT!");
+					fLoadLight(lightPath.node());
+					fLightAddCbks(lightPath.node(), clientData);
+				}
+			}
+				
             break;
         }
 		case(eNodeType::materialNode):
@@ -1657,6 +1755,7 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	hMainHeader mainH;
 	mainH.transformCount = 1;
 	bool hasMeshChild = false;
+	bool hasLightChild = false;
 	bool hasTransChild = false;
 	bool foundChild = false;
 	
@@ -1679,6 +1778,25 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 
 					foundChild = true;
 					break;
+				}
+			}
+
+			if (childObj.hasFn(MFn::kLight))
+			{
+				hasLightChild = true;
+				
+				if (childObj.hasFn(MFn::kPointLight))
+				{
+					hasLightChild = true;
+					MFnPointLight pointLightFn(childObj, &res);
+					if (res == MStatus::kSuccess)
+					{
+						transH.childName = pointLightFn.name().asChar();
+						transH.childNameLength = pointLightFn.name().length() + 1;
+
+						foundChild = true;
+						break;
+					}
 				}
 			}
 		}
@@ -1710,12 +1828,6 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	}
 }
 
-
-
-void fMakeLightMessage()
-{
-	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
-}
 void fMakeGenericMessage()
 {
 	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/

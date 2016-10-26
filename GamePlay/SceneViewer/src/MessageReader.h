@@ -126,6 +126,8 @@ private:
 	std::queue<sHierarchy> hierarchyQueue;
 
 	char* msg;
+
+	gameplay::Node* lightNode;
 };
 
 

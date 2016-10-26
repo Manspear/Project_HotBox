@@ -31,17 +31,17 @@ void HSceneViewer::initialize()
 	msgReader = new HMessageReader();
 
 	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
-	Node* lightNode = Node::create("pointLightShape1");
+	/*Node* lightNode = Node::create("pointLightShape1");
 
-	Light* light = Light::createPoint(Vector3(1.0f, 1.0f, 1.0f), 200);
+	Light* light = Light::createPoint(Vector3(1.0f, 1.0f, 1.0f), 200);*/
 
 	setVsync(false);
 
-	lightNode->setLight(light);
+	/*lightNode->setLight(light);
 	lightNode->translate(Vector3(0, 3, 0));
 	_scene->addNode(lightNode);
 	lightNode->release();
-	light->release();
+	light->release();*/
 }
 
 void HSceneViewer::finalize()
@@ -75,7 +75,7 @@ void HSceneViewer::update(float elapsedTime)
 void HSceneViewer::render(float elapsedTime)
 {
     // Clear the color and depth buffers
-	clear(CLEAR_COLOR_DEPTH, Vector4(1, 1, 1, 0), 1.0f, 0);
+	clear(CLEAR_COLOR_DEPTH, Vector4(0.01f, 0.01f, 0.01f, 0), 1.0f, 0);
 
     // Visit all the nodes in the scene for drawing
     _scene->visit(this, &HSceneViewer::drawScene);

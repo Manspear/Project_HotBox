@@ -12,6 +12,8 @@ HMessageReader::HMessageReader()
 
 	messageCount = 0;
 
+	lightNode = gameplay::Node::create();
+
 	LPCWSTR msgBuffName = TEXT("MessageBuffer");
 	LPCWSTR varBuffName = TEXT("VarBuffer");
 
@@ -489,7 +491,7 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
 			block->setCullFace(true);
-			block->setDepthTest(false);
+			block->setDepthTest(true);
 			block->setDepthWrite(true);
 			block->setStencilTest(true);
 
@@ -499,12 +501,13 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 			material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
 			material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-			gameplay::Node* lightNode = scene->findNode("pointLightShape1");
-
-			material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
-			material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
-			material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
-
+			if (scene->findNode(lightNode->getId()))
+			{
+				material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
+				material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
+				material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
+			}
+			
 			material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
 
 			if (materialHeader->isTexture == true)
@@ -524,7 +527,34 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
 {
-	/*Fill the lightlist vector for this process.*/
+	/*Read the hLightHeader from messageData.*/
+	hLightHeader* lightHeader = (hLightHeader*)(messageData + sizeof(hMainHeader));
+
+	lightHeader->lightName = messageData + sizeof(hMainHeader) + sizeof(hLightHeader);
+
+	lightNode = scene->findNode(lightHeader->lightName);
+
+	if (lightNode != NULL)
+	{
+		gameplay::Light* light = static_cast<gameplay::Light*>(lightNode->getLight());
+
+		light->setColor(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]));
+
+		lightNode->setLight(light);
+	}
+
+	else
+	{
+		lightNode = gameplay::Node::create(lightHeader->lightName);
+
+		gameplay::Light* light = gameplay::Light::createPoint(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]), 100);
+
+		lightNode->setLight(light);
+
+		light->release();
+
+		scene->addNode(lightNode);
+	}
 }
 
 void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene)
@@ -585,6 +615,9 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 	if (camNode != NULL)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
+
+		cameraHeader->projMatrix[10] *= -1;
+		cameraHeader->projMatrix[14] *= -1;
 		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
 		/*Set the current existing camera as active.*/
@@ -600,6 +633,9 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		camNode = gameplay::Node::create(cameraHeader->cameraName);
 
 		gameplay::Camera* cam = gameplay::Camera::createPerspective(0, 0, 0, 0);
+
+		cameraHeader->projMatrix[10] *= -1;
+		cameraHeader->projMatrix[14] *= -1;
 		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
 		camNode->setCamera(cam);

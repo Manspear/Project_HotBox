@@ -103,9 +103,11 @@ struct hChildNodeNameHeader
 
 struct hLightHeader
 {
-    char lightName[256];
+	unsigned int lightNameLength;
+	const char* lightName;
 
-    float intensity;
+	unsigned int lightId;
+
     float color[3];
 };
 
@@ -125,7 +127,7 @@ struct hMaterialHeader
 	float specular[3];
 
 	const char* colorMap;
-	unsigned int colorMapLength;
+	int colorMapLength;
 
 	bool isTexture = false;
 };
