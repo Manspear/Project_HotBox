@@ -37,7 +37,6 @@ float gDt30Fps;
 #define CHUNKSIZE 256
 
 bool firstActiveCam = true;
-bool firstMaterial = true;
 
 int lightCounter = 0;
 
@@ -223,33 +222,12 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 	MIntArray triIndices;
 	mesh.getTriangleOffsets(triCount, triIndices);
 
-
-	//Now put the vertex data into per-polygon arrays!
-	//for (int i = 0; i < mesh.numPolygons(); i++)
-	//{
-	//	for (int j = 0; j < mesh.polygonVertexCount(i, NULL); j++)
-	//	{
-
-	//	}
-	//}
-	/*for (int i = 0; i < triIndices.length(); i++)
-	{
-		sBuiltVertex vert;
-		sPoint pnt;
-		pnt.x = rwPnts[vertList[triIndices[i] + (i * 3)]];
-		pnt.y = rwPnts[vertList[triIndices[i] + (i * 3) + 1]];
-		pnt.z = rwPnts[vertList[triIndices[i] + (i * 3) + 2]];
-	}*/
-	//std::vector<sBuiltVertex> allVert;
-
 	MPointArray pntArr;
 	MVector tempVec;
 	MPoint tempPoint;
 	mesh.getTriangles(triCnt, triVert);
 	allVert.resize(triVert.length());
 
-	//mesh.getUVs() 
-	//mesh.getAssignedUVs()
 	MStringArray uvSetNames;
 	mesh.getUVSetNames(uvSetNames);
 
@@ -282,95 +260,6 @@ void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVe
 
         pntArr.append(tempPoint);
     }
-
- //   MFloatArray u;
- //   MFloatArray v;
- //   mesh.getUVs(u, v, &uvSetNames[0]);
- //   MIntArray uvIndexArray;
- //   int uvId;
- //   int vertCnt;
- //   int triangleVerts[3];
-	////For each polygon
- //   for (int i = 0; i < mesh.numPolygons(); i++)
- //   {
- //       vertCnt = mesh.polygonVertexCount(i, &res);
- //       if (res == MStatus::kSuccess)
- //       {
- //           for (int j = 0; j < triCnt[i]; j++)
- //           {
- //               mesh.getPolygonTriangleVertices(i, j, triangleVerts);
-
- //               mesh.getPolygonUVid(i, triangleVerts[0], uvId);      
- //               uvIndexArray.append(uvId);
- //               mesh.getPolygonUVid(i, triangleVerts[1], uvId);
- //               uvIndexArray.append(uvId);
- //               mesh.getPolygonUVid(i, triangleVerts[2], uvId);
- //               uvIndexArray.append(uvId);
- //           }
- //       } 
- //   }
-
-	//MFloatArray u;
-	//MFloatArray v;
-	//mesh.getUVs(u, v, &uvSetNames[0]);
-	//MIntArray uvIndexArray;
-	//int uvId;
-	//int vertCnt;
-	//int newTris[6];
-	////For each polygon
-
-	//for (int i = 0; i < mesh.numPolygons(); i++)
-	//{
-	//	vertCnt = mesh.polygonVertexCount(i, &res);
-	//	if (res == MStatus::kSuccess)
-	//	{
-	//		MIntArray tempUVIndexArray;
-	//		//For each vertex in the polygon
-	//		for (int j = 0; j < vertCnt; j++)
-	//		{
-	//			mesh.getPolygonUVid(i, j, uvId);
-	//			tempUVIndexArray.append(uvId);
-	//		}
-	//		//"transform" it into triangles by... 
-	//		//first checking if the count of 
-	//		//vertices are more than 3.
-	//		//Then loop through the first three indices
-	//		//they are one triangle. The first and the third
-	//		//vertex will be used together with the fourth 
-	//		//vertex to build the second triangle. 
-	//		if (vertCnt == 4)
-	//		{
-	//			newTris[0] = tempUVIndexArray[0];
-	//			newTris[1] = tempUVIndexArray[1];
-	//			newTris[2] = tempUVIndexArray[2];
-	//			newTris[3] = tempUVIndexArray[0];
-	//			newTris[4] = tempUVIndexArray[2];
-	//			newTris[5] = tempUVIndexArray[3];
-
-	//			for (int i = 0; i < 6; i++)
-	//				uvIndexArray.append(newTris[i]);
-	//		}
-	//		if (vertCnt == 3)
-	//		{
-	//			for (int i = 0; i < 3; i++)
-	//				uvIndexArray.append(tempUVIndexArray[i]);
-	//		}
-	//	}
-	//}
-
-	//uvIndexArray.length();
-	//allVert.size();
-	//MGlobal::displayInfo(MString("POOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO uvIndexArray: ") + MString("") + uvIndexArray.length() + MString("ALLVERTASDDDDDDDDDDDDDDDD ") + allVert.size());
-	//uvIndexarray is size 24. allVert is size 36. How to "sync" them?
-	//The indexes should be set up in a similar manner across all attributes...
-	//But not UVs. They are special MFers.
-    //for (int i = 0; i < allVert.size(); i++)
-    //{
-    //    mesh.getUV(uvIndexArray[i], allVert[i].uv.u, allVert[i].uv.v, &uvSetNames[0]);
-    //}
-    //MFloatArray uArr;
-    //MFloatArray vArr;
-    //mesh.getUVs(uArr, vArr, &uvSetNames[0]);
 }
 
 /*
@@ -381,9 +270,6 @@ When you delete a face, you gotta call a function like this...
 */
 void fOnMeshTopoChange(MObject &node, void *clientData)
 {
-	//MFnMesh mesh(node);
-	//fMakeMeshMessage(node, false);
-
 	MGlobal::displayInfo("TOPOLOGY!");
     MStatus res;
     MFnMesh meshFn(node, &res);
@@ -391,7 +277,6 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
     {
 		MGlobal::displayInfo("TOPOLOGY2!");
 		fMakeMeshMessage(node, false);
-        //loadMesh // reloadMesh
     }
 }
 
@@ -414,17 +299,15 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 			fMakeMeshMessage(temp, false);
 		}
 	}
-
+	/*When a mesh changes a material, we are only interested in when connections are made and broken.*/
 	else if (attrMessage & MNodeMessage::AttributeMessage::kConnectionMade | MNodeMessage::AttributeMessage::kConnectionBroken)
 	{
 		MFnMesh meshFn(plug.node(), &res);
-
 		if (res == MStatus::kSuccess)
 		{
+			/*Only load the material change on the mesh if the plug name is ".instObjGroups[0]".*/
 			if (plug.name() == MString(meshFn.name() + ".instObjGroups[0]"))
-			{
 				fLoadMaterial(plug.node());
-			}
 		}
 	}
 }
@@ -504,21 +387,14 @@ void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *cli
 
 void fOnGeometryDelete(MObject &node, MDGModifier &modifier, void *clientData)
 {
-	MGlobal::displayInfo("GEOMETRY DELETEDaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!");
-}
-void fOnUVSetChange(MObject &node, const MString &name, MPolyMessage::MessageType type, void *clientData)
-{
-	MGlobal::displayInfo("UV SET CHANGED!");
+	MGlobal::displayInfo("GEOMETRY DELETED!");
 }
 
 void fOnModelNodeRemoved (MObject &node, void *clientData)
 {
 	MGlobal::displayInfo("NODE REMOVED FROM MODEL!");
 }
-void fOnShit (MObject &node, void *clientData)
-{
-	MGlobal::displayInfo("SHIT!");
-}
+
 void fMeshAddCbks(MObject& node, void* clientData)
 {
     MStatus res;
@@ -536,20 +412,12 @@ void fMeshAddCbks(MObject& node, void* clientData)
 			MGlobal::displayInfo("Polytopo SUcess!");
 			ids.append(id);
 		}
-		MPolyMessage::addUVSetChangedCallback(node, fOnUVSetChange, NULL, &res);
-
 
 		id = MNodeMessage::addNodeAboutToDeleteCallback(node, fOnGeometryDelete, NULL, &res);
 		if (res == MStatus::kSuccess)
 		{
 			MGlobal::displayInfo("Delete SUcess!");
 			ids.append(id);
-		}
-		id = MNodeMessage::addNodePreRemovalCallback(node, fOnShit, NULL, &res);
-		if (res == MStatus::kSuccess)
-		{
-			ids.append(id);
-			MGlobal::displayInfo("addNodePreRemoval Sucess!");
 		}
 
 		id = MModelMessage::addNodeRemovedFromModelCallback(node, fOnModelNodeRemoved, NULL, &res);
@@ -563,45 +431,47 @@ void fMeshAddCbks(MObject& node, void* clientData)
 
 void fLoadCamera()
 {
-	hCameraHeader hCam;
 	MStatus res;
-	MFloatMatrix projMatrix;
-	
 	MDagPath cameraPath;
-
 	M3dView activeView = M3dView::active3dView();
-
+	hCameraHeader hCam;
+	
+	/*Find the MDagPath to the camera connected to the active viewport.*/
 	if(activeView.getCamera(cameraPath))
 	{
 		MFnCamera camFn(cameraPath.node(), &res);
 		if (res == MStatus::kSuccess)
 		{
+			/*Obtain the projection matrix from the first loaded active camera.*/
 			MFloatMatrix projMatrix = camFn.projectionMatrix();
 
 			memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
+			/*Obtain the camera's name & length for ID usage in Gameplay3D scene.*/
 			hCam.cameraName = camFn.name().asChar();
 			hCam.cameraNameLength = camFn.name().length();
 
 			MFnTransform fnTransform(camFn.parent(0), &res);
 			if (res == MStatus::kSuccess)
 			{
+				/*Obtain the camera's transform parent's translation, scale & Quaternion.*/
 				MVector tempTrans = fnTransform.getTranslation(MSpace::kTransform, &res);
-
 				double camTrans[3];
 				tempTrans.get(camTrans);
-
+	
 				double camScale[3];
 				fnTransform.getScale(camScale);
+				/*NOTE: Camera's rotation quaternion should ways be obtained in it's transform space.*/
 				double camQuat[4];
-				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kWorld);
+				fnTransform.getRotationQuaternion(camQuat[0], camQuat[1], camQuat[2], camQuat[3], MSpace::kTransform);
 
+				/*std::copy, especially used for simply copying from double to float.*/
 				std::copy(camTrans, camTrans + 3, hCam.trans);
 				std::copy(camScale, camScale + 3, hCam.scale);
 				std::copy(camQuat, camQuat + 4, hCam.rot);
 			}
 		}
 	}
-
+	/*Camera data is obtained, send a camera message.*/
 	fMakeCameraMessage(hCam);
 }
 
@@ -610,16 +480,15 @@ void fCameraChanged(const MString &str, void* clientData)
 	static MMatrix oldMat;
 	hCameraHeader hCam;
 	MStatus res;
-	MMatrix projMatrix;
 
 	M3dView activeView = M3dView::active3dView();
 
-	MDagPath cameraPath;
-
+	/*Obtain the current name of the panel and compare this with the
+	desired panels we want to obtain camera information from.*/
 	MString panelName = MGlobal::executeCommandStringResult("getPanel -wf");
-
 	if (strcmp(panelName.asChar(), str.asChar()) == 0)
 	{
+		MDagPath cameraPath;
 		if (activeView.getCamera(cameraPath))
 		{
 			MFnCamera camFn(cameraPath.node(), &res);
@@ -638,6 +507,9 @@ void fCameraChanged(const MString &str, void* clientData)
 				hCam.cameraName = camFn.name().asChar();
 				hCam.cameraNameLength = camFn.name().length();
 
+				/*This callback also registers if the mouse is hovering over objects in the viewport,
+				which is not wanted. To only send cameras message when camera changes, solution is to
+				memory compare the old values with the new values of both the proj and transform matrices.*/
 				if (memcmp(&newMat, &oldMat, sizeof(MMatrix)) != 0 || memcmp(&projMatrix, &oldProjMatrix, sizeof(MFloatMatrix)) != 0)
 				{
 					oldMat = newMat;
@@ -658,7 +530,7 @@ void fCameraChanged(const MString &str, void* clientData)
 						std::copy(camScale, camScale + 3, hCam.scale);
 						std::copy(camQuat, camQuat + 4, hCam.rot);
 					}
-
+					/*Camera data changes is obtained, send a camera message.*/
 					fMakeCameraMessage(hCam);
 				}
 			}
@@ -670,53 +542,18 @@ void fCameraAddCbks(MObject& node, void* clientData)
 {
 	MStatus res;
 	MCallbackId id;
-	MFnCamera camFn(node, &res);
+	
+	/*Collect changes when active camera changes.*/
+	id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
+	/*Only registering changes for modelPanel4, actually registers for all camera viewports in Maya.*/
 	if (res == MStatus::kSuccess)
 	{
-		M3dView activeCamView = M3dView::active3dView(&res);
-
-		if (res == MStatus::kSuccess)
-		{
-			if (firstActiveCam == true)
-			{
-				/*Load the active camera when plugin is initialized.*/
-				fLoadCamera();
-				firstActiveCam = false;
-			}
-
-			/*Collect changes when active camera changes.*/
-			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel1"), fCameraChanged, NULL, &res);
-			if (res == MStatus::kSuccess)
-			{
-				MGlobal::displayInfo("cameraChanged success!");
-				ids.append(id);
-			}
-
-			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel2"), fCameraChanged, NULL, &res);
-			if (res == MStatus::kSuccess)
-			{
-				MGlobal::displayInfo("cameraChanged success!");
-				ids.append(id);
-			}
-
-			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel3"), fCameraChanged, NULL, &res);
-			if (res == MStatus::kSuccess)
-			{
-				MGlobal::displayInfo("cameraChanged success!");
-				ids.append(id);
-			}
-
-			id = MUiMessage::add3dViewPreRenderMsgCallback(MString("modelPanel4"), fCameraChanged, NULL, &res);
-			if (res == MStatus::kSuccess)
-			{
-				MGlobal::displayInfo("cameraChanged success!");
-				ids.append(id);
-			}
-		}
+		MGlobal::displayInfo("cameraChanged success!");
+		ids.append(id);
 	}
 }
 
-MObject fFindMaterialConnected(MObject node)
+MObject fFindShadingGroup(MObject node)
 {
 	MStatus res;
 
@@ -727,48 +564,46 @@ MObject fFindMaterialConnected(MObject node)
 		MDagPath dp;
 
 		fnMesh.getPath(dp);
-
+		/*Find the instance number from the kMesh to query.*/
 		unsigned int instNum = dp.instanceNumber();
 
+		/*Get the set connected to the specified instance of kMesh.*/
 		MObjectArray sets, comps;
-
 		if (!fnMesh.getConnectedSetsAndMembers(instNum, sets, comps, true))
 			MGlobal::displayInfo("FAILED!");
 
+		/*If the set have a length, return the first set in the MObjectArray.*/
 		if (sets.length())
 		{
 			MObject set = sets[0];
-			MObject comp = comps[0];
-
 			return set;
 		}
 	}
-
+	/*If there is nothing to find in the MObjectArray for sets, return a null Obj.*/
 	return MObject::kNullObj;
 }
 
 MObject fFindShader(MObject& setNode)
 {
+	/*With the set, which is a shading group, we can now find 
+	the surfaceShader plug, from the SG Node.*/
 	MFnDependencyNode fnNode(setNode);
 	MPlug shaderPlug = fnNode.findPlug("surfaceShader");
 
+	/*If the shader plug contains a surface Shader, we obtain this shader node
+	from the surface shader plug itself and return it.*/
 	if (!shaderPlug.isNull())
 	{
 		MPlugArray connectedPlugs;
-
 		shaderPlug.connectedTo(connectedPlugs, true, false);
 
 		if (connectedPlugs.length() != 1)
-		{
 			MGlobal::displayInfo("Error getting the shader...");
-		}
 
 		else
-		{
 			return connectedPlugs[0].node();
-		}
 	}
-
+	/*No surface shader was found, return a null obj.*/
 	return MObject::kNullObj;
 }
 
@@ -784,6 +619,8 @@ void fMakeMaterialMessage(hMaterialHeader hMaterial)
 
 	hMaterial.numConnectedMeshes = hMaterial.connectMeshList.size();
 
+	/*Depending if there is a texture or not assigned to material, the message
+	is sent in two different ways, altered by the texture flag.*/
 	if (hMaterial.isTexture == false)
 	{
 		int totalSize = mainMem + materialMem;
@@ -840,13 +677,12 @@ void fFindMeshConnectedToMaterial(MObject shaderNode, hMaterialHeader& hMaterial
 	MStatus res;
 	hMeshConnectMaterialHeader hMeshMaterial;
 
-	/*Find the all the connections with the shader and store in an array.*/
+	/*Find the "outColor" plug, to go from the shader to the connected shading group.*/
 	MPlugArray connectionsToShader;
-
 	MPlug outColorPlug = MFnDependencyNode(shaderNode).findPlug("outColor", &res);
-
 	outColorPlug.connectedTo(connectionsToShader, false, true, &res);
 
+	/*If there are shader groups "kShadingEngines", loop through these.*/
 	if (connectionsToShader.length())
 	{
 		for (int connectIndex = 0; connectIndex < connectionsToShader.length(); connectIndex++)
@@ -855,32 +691,36 @@ void fFindMeshConnectedToMaterial(MObject shaderNode, hMaterialHeader& hMaterial
 			{
 				MFnDependencyNode shadingNode;
 				shadingNode.setObject(connectionsToShader[connectIndex].node());
+				/*There is always a kShadingEngine called "initialParticleSE", this we 
+				check for and skip it. No need to process this.*/
+				if (shadingNode.name() == "initialParticleSE")
+					continue;
 
-				MGlobal::displayInfo(shadingNode.name());
-
+				/*Find the "dagSetMembers" plug in the SG, which connects to one or several meshes.*/
 				MPlug dagSetMemberPlug = shadingNode.findPlug("dagSetMembers", &res);
+				MPlugArray meshsConnectedToSG;
 
-				MPlugArray connectionsToSG;
-
+				/*If there are Dag Set Members connected to the SG, loop through and obtain the mesh information.*/
 				for (int dagSetIndex = 0; dagSetIndex < dagSetMemberPlug.numConnectedElements(); dagSetIndex++)
 				{
-					dagSetMemberPlug[dagSetIndex].connectedTo(connectionsToSG, true, false, &res);
-
-					if (connectionsToSG.length())
+					dagSetMemberPlug[dagSetIndex].connectedTo(meshsConnectedToSG, true, false, &res);
+					/*If there is a mesh in this dag set Member array index, process it.*/
+					if (meshsConnectedToSG.length())
 					{
-						for (int meshIndex = 0; meshIndex < connectionsToSG.length(); meshIndex++)
+						for (int meshIndex = 0; meshIndex < meshsConnectedToSG.length(); meshIndex++)
 						{
-							MFnMesh mesh(connectionsToSG[meshIndex].node());
+							MFnMesh mesh(meshsConnectedToSG[meshIndex].node());
+							/*Strangely there is a shape called "shaderBallGeomShape!", if we find it
+							then we simply skip it. No need to process this strange shape.*/
+							if (mesh.name() == "shaderBallGeomShape1")
+								continue;
 
-							if (mesh.name() != "shaderBallGeomShape1")
-							{
-								MGlobal::displayInfo(mesh.name());
-
-								hMeshMaterial.connectMeshName = mesh.name().asChar();
-								hMeshMaterial.connectMeshNameLength = mesh.name().length() + 1;
-
-								hMaterial.connectMeshList.push_back(hMeshMaterial);
-							}
+							MGlobal::displayInfo(mesh.name());
+							/*Obtain the connected mesh's name and length.*/
+							hMeshMaterial.connectMeshName = mesh.name().asChar();
+							hMeshMaterial.connectMeshNameLength = mesh.name().length() + 1;
+							/*All meshes connected to this shading group is put in a "special" connect mesh list.*/
+							hMaterial.connectMeshList.push_back(hMeshMaterial);
 						}
 					}
 				}
@@ -891,6 +731,8 @@ void fFindMeshConnectedToMaterial(MObject shaderNode, hMaterialHeader& hMaterial
 
 void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
 {
+	/*Important to check if the message is when a attribute is set in the material. Also
+	the plug nodes are only allowed to be lambert, blinn and phong.*/
 	if (attrMessage & MNodeMessage::kAttributeSet || plug.node().hasFn(MFn::kLambert)
 		|| plug.node().hasFn(MFn::kBlinn) || plug.node().hasFn(MFn::kPhong))
 	{
@@ -900,13 +742,16 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 
 		hMaterialHeader hMaterial;
 
+		/*Find one or several meshes connected to this material.*/
 		fFindMeshConnectedToMaterial(plug.node(), hMaterial);
 
+		/*Find the "color" plug and obtain the RGB values from this. NOTE: This is not diffuse color.*/
 		MPlug colorPlug = MFnDependencyNode(plug.node()).findPlug("color", &res);
 		if (res == MStatus::kSuccess)
 		{
 			if (res == MStatus::kSuccess)
 			{
+				/*Obtain the RGB values and store them and the alpha value.*/
 				colorPlug.getValue(tempData);
 				MFnNumericData colorData(tempData);
 
@@ -917,35 +762,31 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 				hMaterial.diffuseColor[2] = (float)rgb[2];
 				hMaterial.diffuseColor[3] = 1.0f;
 			}
-
+			/*Find the "diffuse" plug. This is how the light scatters on the material.*/
 			MPlug diffusePlug = MFnDependencyNode(plug.node()).findPlug("diffuse", &res);
 			if (res == MStatus::kSuccess)
 			{
 				float diffExp;
 				diffusePlug.getValue(diffExp);
-
+				/*NOTE: To obtain the "diffuse" color, it's required to multiply the
+				color earlier obtained with the diffuse float exponent*/
 				hMaterial.diffuseColor[0] *= (float)diffExp;
 				hMaterial.diffuseColor[1] *= (float)diffExp;
 				hMaterial.diffuseColor[2] *= (float)diffExp;
-
-				MGlobal::displayInfo(MString("Diffuse Color: ") +
-					MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
-					MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
-					MString("B: ") + hMaterial.diffuseColor[2]);
 			}
 		}
-
+		/*From the "color" plug, iterate and see if there are any "color" textures assigned to the plug.*/
 		MItDependencyGraph colorTexIt(colorPlug, MFn::kFileTexture, MItDependencyGraph::kUpstream);
 
 		while (!colorTexIt.isDone())
 		{
 			MFnDependencyNode texture(colorTexIt.currentItem());
-
+			/*Find the "fileTextureName" plug.*/
 			MPlug colorTexturePlug = texture.findPlug("fileTextureName", &res);
 			if (res == MStatus::kSuccess)
 			{
+				/*Obtain the filepath name to the assigned color texture.*/
 				MString filePathName;
-
 				colorTexturePlug.getValue(filePathName);
 
 				if (filePathName.numChars() > 0)
@@ -954,18 +795,17 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 
 					hMaterial.colorMap = filePathName.asChar();
 					hMaterial.colorMapLength = filePathName.length() + 1;
+					/*Set the texture flag to true.*/
 					hMaterial.isTexture = true;
 				}
-
+				/*If there are no chars in the filepath name, set the texture flag to false.*/
 				else
-				{
 					hMaterial.isTexture = false;
-				}
 			}
-
+			/*Process to the next texture.*/
 			colorTexIt.next();
 		}
-
+		/*Find the "ambientColor" plug and obtain the RGB values.*/
 		MPlug ambientPlug = MFnDependencyNode(plug.node()).findPlug("ambientColor", &res);
 		if (res == MStatus::kSuccess)
 		{
@@ -977,13 +817,8 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 			hMaterial.ambient[0] = rgb[0];
 			hMaterial.ambient[1] = rgb[1];
 			hMaterial.ambient[2] = rgb[2];
-
-			MGlobal::displayInfo(MString("Ambient: ") +
-				MString("R: ") + rgb[0] + MString(" ") +
-				MString("G: ") + rgb[1] + MString(" ") +
-				MString("B: ") + rgb[2]);
 		}
-
+		/*If the connected shader is a PHONG or BLINN, find the "specularColor" plug and RGB values.*/
 		if (plug.node().hasFn(MFn::kPhong) || plug.node().hasFn(MFn::kBlinn))
 		{
 			MPlug specularPlug = MFnDependencyNode(plug.node()).findPlug("specularColor", &res);
@@ -997,25 +832,17 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 				hMaterial.specular[0] = rgb[0];
 				hMaterial.specular[1] = rgb[1];
 				hMaterial.specular[2] = rgb[2];
-
-				MGlobal::displayInfo(MString("Specular: ") +
-					MString("R: ") + rgb[0] + MString(" ") +
-					MString("G: ") + rgb[1] + MString(" ") +
-					MString("B: ") + rgb[2]);
 			}
 		}
 
 		/*The material is kLambert, assign zero to specular.*/
 		else if (plug.node().hasFn(MFn::kLambert))
 		{
-			/*Set specular to zero in RGB.*/
-			MGlobal::displayInfo(MString("No specular for kLambert!"));
-
 			hMaterial.specular[0] = 0;
 			hMaterial.specular[1] = 0;
 			hMaterial.specular[2] = 0;
 		}
-
+		/*Obtained material attributes, send a material message.*/
 		fMakeMaterialMessage(hMaterial);
 	}
 }
@@ -1042,24 +869,30 @@ void fLoadMaterial(MObject& node)
 	MObject connectedSet;
 	MObject	connectedShader;
 
+	/*If the input is a kMesh, find the surface shader connected to it's shading group.*/
 	if (node.hasFn(MFn::kMesh))
 	{
-		connectedSet = fFindMaterialConnected(node);
+		/*Find the shading group and return the set, which the mesh is connected to the SG.*/
+		connectedSet = fFindShadingGroup(node);
+		/*Find the surfaced shader connected with the shading group.*/
 		connectedShader = fFindShader(connectedSet);
 	}
-
+	/*If the input is a surface shader, assign this directly to the variable "connectedShader".*/
 	else if (node.hasFn(MFn::kLambert) || node.hasFn(MFn::kBlinn) || node.hasFn(MFn::kPhong))
 	{
 		connectedShader = node;
 	}
 
+	/*With the surface shader, find all meshes connected to shader via the shading group.*/
 	fFindMeshConnectedToMaterial(connectedShader, hMaterial);
 
+	/*Find the "color" plug and obtain the RGB values from this. NOTE: This is not diffuse color.*/
 	MPlug colorPlug = MFnDependencyNode(connectedShader).findPlug("color", &res);
 	if (res == MStatus::kSuccess)
 	{
 		if (res == MStatus::kSuccess)
 		{
+			/*Obtain the RGB values and store them and the alpha value.*/
 			colorPlug.getValue(tempData);
 			MFnNumericData colorData(tempData);
 
@@ -1070,56 +903,50 @@ void fLoadMaterial(MObject& node)
 			hMaterial.diffuseColor[2] = (float)rgb[2];
 			hMaterial.diffuseColor[3] = 1.0f;
 		}
-
+		/*Find the "diffuse" plug. This is how the light scatters on the material.*/
 		MPlug diffusePlug = MFnDependencyNode(connectedShader).findPlug("diffuse", &res);
 		if (res == MStatus::kSuccess)
 		{
 			float diffExp;
 			diffusePlug.getValue(diffExp);
-
+			/*NOTE: To obtain the "diffuse" color, it's required to multiply the
+			color earlier obtained with the diffuse float exponent*/
 			hMaterial.diffuseColor[0] *= (float)diffExp;
 			hMaterial.diffuseColor[1] *= (float)diffExp;
 			hMaterial.diffuseColor[2] *= (float)diffExp;
-
-			MGlobal::displayInfo(MString("Diffuse Color: ") +
-				MString("R: ") + hMaterial.diffuseColor[0] + MString(" ") +
-				MString("G: ") + hMaterial.diffuseColor[1] + MString(" ") +
-				MString("B: ") + hMaterial.diffuseColor[2]);
 		}
 	}
 
+	/*From the "color" plug, iterate and see if there are any "color" textures assigned to the plug.*/
 	MItDependencyGraph colorTexIt(colorPlug, MFn::kFileTexture, MItDependencyGraph::kUpstream);
 
 	while (!colorTexIt.isDone())
 	{
 		MFnDependencyNode texture(colorTexIt.currentItem());
-
+		/*Find the "fileTextureName" plug.*/
 		MPlug colorTexturePlug = texture.findPlug("fileTextureName", &res);
 
 		if (res == MStatus::kSuccess)
 		{
+			/*Obtain the filepath name to the assigned color texture.*/
 			MString filePathName;
-
 			colorTexturePlug.getValue(filePathName);
 
 			if (filePathName.numChars() > 0)
 			{
-				MGlobal::displayInfo(filePathName);
-
 				hMaterial.colorMap = filePathName.asChar();
 				hMaterial.colorMapLength = filePathName.length() + 1;
+				/*Set the texture flag to true.*/
 				hMaterial.isTexture = true;
 			}
-
+			/*If there are no chars in the filepath name, set the texture flag to false.*/
 			else
-			{
 				hMaterial.isTexture = false;
-			}
 		}
-
+		/*Process to the next texture.*/
 		colorTexIt.next();
 	}
-
+	/*Find the "ambientColor" plug and obtain the RGB values.*/
 	MPlug ambientPlug = MFnDependencyNode(connectedShader).findPlug("ambientColor", &res);
 	if (res == MStatus::kSuccess)
 	{
@@ -1131,13 +958,8 @@ void fLoadMaterial(MObject& node)
 		hMaterial.ambient[0] = rgb[0];
 		hMaterial.ambient[1] = rgb[1];
 		hMaterial.ambient[2] = rgb[2];
-
-		MGlobal::displayInfo(MString("Ambient: ") +
-			MString("R: ") + rgb[0] + MString(" ") +
-			MString("G: ") + rgb[1] + MString(" ") +
-			MString("B: ") + rgb[2]);
 	}
-
+	/*If the connected shader is a PHONG or BLINN, find the "specularColor" plug and RGB values.*/
 	if (connectedShader.hasFn(MFn::kPhong) || connectedShader.hasFn(MFn::kBlinn))
 	{
 		MPlug specularPlug = MFnDependencyNode(connectedShader).findPlug("specularColor", &res);
@@ -1151,25 +973,17 @@ void fLoadMaterial(MObject& node)
 			hMaterial.specular[0] = rgb[0];
 			hMaterial.specular[1] = rgb[1];
 			hMaterial.specular[2] = rgb[2];
-
-			MGlobal::displayInfo(MString("Specular: ") +
-				MString("R: ") + rgb[0] + MString(" ") +
-				MString("G: ") + rgb[1] + MString(" ") +
-				MString("B: ") + rgb[2]);
 		}
 	}
 
-	/*The material is kLambert, assign zero to specular.*/
+	/*The material is kLambert, assign zero to specular color.*/
 	else if (connectedShader.hasFn(MFn::kLambert))
 	{
-		/*Set specular to zero in RGB.*/
-		MGlobal::displayInfo(MString("No specular for kLambert!"));
-
 		hMaterial.specular[0] = 0;
 		hMaterial.specular[1] = 0;
 		hMaterial.specular[2] = 0;
 	}
-
+	/*Obtained material attributes, send a material message.*/
 	fMakeMaterialMessage(hMaterial);
 }
 
@@ -1186,12 +1000,6 @@ void fDagNodeAddCbks(MObject& node, void* clientData)
         if (res == MStatus::kSuccess)
             ids.append(id);
     }    
-
-	MFnDependencyNode depFn(node, &res);
-	if (res == MStatus::kSuccess)
-	{
-
-	}
 }
 
 void fLoadTransform(MObject& obj, bool isFromQueue)
@@ -1238,35 +1046,7 @@ void fOnTransformAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &p
 		}
 	}
 }
-/*
-Currently, as soon as the hierarchy is changed, I simply send the parent and it's children 
-to the engine, where they're added. I never remove/dislocate a child. So, to make this 
-change as painless as possible, check if you can simply "reset" the parenting of the parent node in the
-engine every time a change is made, and then set it again.
 
-The more "proper" route would be to simply add a new kind of message that sends off
-the parent losing it's child, and the child getting lost.
-This is a very simple header:
-
-struct hChildRemoved
-{
-	int parentNameLength;
-	char* parentName;
-	
-	int childNameLength;
-	char* childName;
-}
-The header for doing the opposite looks exactly the same:
-
-struct hChildAdded
-{
-int parentNameLength;
-char* parentName;
-
-int childNameLength;
-char* childName;
-}
-*/
 void fMakeChildMessage(hMainHeader& mainH, MDagPath& child, MDagPath& parent)
 {
 	MStatus res;
@@ -1329,8 +1109,6 @@ void fMakeChildMessage(hMainHeader& mainH, MDagPath& child, MDagPath& parent)
 					producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hParChildHeader) + aC.parentNameLength + aC.childNameLength);
 
 					mtx.unlock();
-
-					MGlobal::displayInfo("WOOOOOOOOOOOO");
 				}
 			}
 		}
@@ -1365,13 +1143,7 @@ void fTransAddCbks(MObject& node, void* clientData)
 		{
 			ids.append(id);
 		}
-		//Object does not exist, does it mean that the transform is... dirty? No.
-		//What is the problem, really? Omg.
-		/*
-		I think this problem is plausible when a node is actually created.
-		But when you iterate through the scene... And it still says
-		that "Object does not exist"
-		*/
+	
 		MDagPath pth;
 		transFn.getPath(pth);
 
@@ -1398,18 +1170,12 @@ void fMaterialAddCbks(MObject node, void* clientData)
 {
 	MStatus res;
 	MCallbackId id;
-
+	/*Callback registers when attributes are changed on current and new materials.*/
 	id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialAttrChanges, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
 		ids.append(id);
 	}
-
-	/*id = MNodeMessage::addAttributeChangedCallback(node, fOnMaterialChange, NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-	ids.append(id);
-	}*/
 }
 
 void fMakeLightMessage(hLightHeader hLight)
@@ -1440,6 +1206,9 @@ void fOnLightAttributeChanges(MNodeMessage::AttributeMessage attrMessage, MPlug&
 	MFnPointLight pointLightFn(plug.node(), &res);
 	if (res == MStatus::kSuccess)
 	{
+		/*Strangely when creating a new light, the callback registers this. This is why
+		this have to be filtered for the things we only want to process, which is light 
+		attribute when they change.*/
 		if (attrMessage & MNodeMessage::AttributeMessage::kAttributeSet &&
 			attrMessage & MNodeMessage::AttributeMessage::kIncomingDirection &&
 			plug.name() == MString(pointLightFn.name() + ".color") ||
@@ -1447,16 +1216,14 @@ void fOnLightAttributeChanges(MNodeMessage::AttributeMessage attrMessage, MPlug&
 		{
 			hLightHeader hLight;
 
+			/*Obtain the color and intensity of the light.*/
 			MColor lightColor = pointLightFn.color(&res);
 			float intensity = pointLightFn.intensity(&res);
 
+			/*RGB values of the color need to be multiplied with the intensity.*/
 			hLight.color[0] = lightColor.r * intensity;
 			hLight.color[1] = lightColor.g * intensity;
 			hLight.color[2] = lightColor.b * intensity;
-
-			MGlobal::displayInfo(MString("R: ") + hLight.color[0]);
-			MGlobal::displayInfo(MString("G: ") + hLight.color[1]);
-			MGlobal::displayInfo(MString("B: ") + hLight.color[2]);
 
 			hLight.lightName = pointLightFn.name().asChar();
 			hLight.lightNameLength = pointLightFn.name().length() + 1;
@@ -1464,6 +1231,7 @@ void fOnLightAttributeChanges(MNodeMessage::AttributeMessage attrMessage, MPlug&
 			/*Light Id already exists in gameplay3D. Assign default value.*/
 			hLight.lightId = 1137;
 
+			/*Light attribute changes are obtained, send a light message.*/
 			fMakeLightMessage(hLight);
 		}
 	}
@@ -1474,6 +1242,7 @@ void fLightAddCbks(MObject node, void* clientData)
 	MStatus res;
 	MCallbackId id;
 
+	/*Callback registers light attribute changes for current and new lights.*/
 	id = MNodeMessage::addAttributeChangedCallback(node, fOnLightAttributeChanges, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
@@ -1483,25 +1252,28 @@ void fLightAddCbks(MObject node, void* clientData)
 
 void fLoadLight(MObject lightNode)
 {
+	/*Function only have support for loading point lights, for now.*/
 	MStatus res;
 
 	MFnPointLight pointLightFn(lightNode, &res);
-
 	if (res == MStatus::kSuccess)
 	{
 		hLightHeader hLight;
-
+		/*Obtain both the color and intensity of light.*/
 		MColor lightColor = pointLightFn.color(&res);
 		float intensity = pointLightFn.intensity(&res);
 
+		/*The RGB values of the color should be multiplied with the intensity.*/
 		hLight.color[0] = lightColor.r * intensity;
 		hLight.color[1] = lightColor.g * intensity;
 		hLight.color[2] = lightColor.b * intensity; 
 
+		/*Obtaining the name and length for ID usage in Gameplay3D*/
 		hLight.lightName = pointLightFn.name().asChar();
 		hLight.lightNameLength = pointLightFn.name().length() + 1;
 		hLight.lightId = lightCounter;
 
+		/*Light attributes are obtained, send a light message.*/
 		fMakeLightMessage(hLight);
 
 		lightCounter++;
@@ -1545,7 +1317,9 @@ void fOnNodeCreate(MObject& node, void *clientData)
                 fMeshAddCbks(node, clientData);
                 //This gets called when the move tool is selected, for some reason
 				MGlobal::displayInfo("MESH NODE CREATED!");
+				/*Make a mesh message for current and new meshes.*/
 				fMakeMeshMessage(node, false);
+				/*Load the material assigned to current and new meshes.*/
 				fLoadMaterial(node);
             }
             break;
@@ -1566,8 +1340,19 @@ void fOnNodeCreate(MObject& node, void *clientData)
 			MFnCamera camFn(node, &res);
 			if (res == MStatus::kSuccess)
 			{	
-				fCameraAddCbks(node, clientData);
+				M3dView activeCamView = M3dView::active3dView(&res);
+				if (res == MStatus::kSuccess)
+				{
+					if (firstActiveCam == true)
+					{
+						/*Load the first active camera when plugin is initialized.*/
+						fLoadCamera();
+						firstActiveCam = false;
+					}
+				}
 			}
+			/*All camera related callbacks are registered here.*/
+			fCameraAddCbks(node, clientData);
 			break;
 		}
         case(eNodeType::dagNode):
@@ -1576,17 +1361,19 @@ void fOnNodeCreate(MObject& node, void *clientData)
             if (res == MStatus::kSuccess)
                 fDagNodeAddCbks(node, clientData);
 
+			/*The light node is regarded as a dagNode and that is why
+			it's important to check if there is dagPath to this light.*/
 			MDagPath lightPath;
 			if (dagFn.getPath(lightPath))
 			{
 				if (lightPath.node().hasFn(MFn::kPointLight))
 				{
-					MGlobal::displayInfo("POINTLIGHT!");
+					/*Load every current and new light's information.*/
 					fLoadLight(lightPath.node());
+					/*Function containing callbacks related to light*/
 					fLightAddCbks(lightPath.node(), clientData);
 				}
 			}
-				
             break;
         }
 		case(eNodeType::materialNode):
@@ -1594,6 +1381,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
 			MFnDependencyNode materialFn(node, &res);
 			if (res == MStatus::kSuccess)
 			{
+				/*Function that registers callbacks related to materials.*/
 				fMaterialAddCbks(node, clientData);
 			}
 			break;
@@ -1690,7 +1478,6 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
 	fLoadMesh(mesh, isFromQueue, meshVertices);
 
-    /*Have this function become awesome*/
     hMainHeader mainH;
 
     mainH.meshCount = 1;
@@ -1708,17 +1495,11 @@ void fMakeMeshMessage(MObject obj, bool isFromQueue)
 
     int totPackageSize = mainHMem + meshHMem + meshH.meshNameLen + meshH.vertexCount * meshVertexMem;
 
-    /*
-    In the initialize-function, maybe have an array of msg. Pre-sized so that there's a total of 4 messages
-    check if a message is "active", if it's unactive, i.e already read, the queued thing may memcpy into it.
-    */
 	mtx.lock();
     memcpy(msg, (void*)&mainH, (size_t)mainHMem);
     memcpy(msg + mainHMem, (void*)&meshH, (size_t)meshHMem);
     memcpy(msg + mainHMem + meshHMem, (void*)meshH.meshName, meshH.meshNameLen-1);
-	// Insert \0
-	*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen-1) = '\0';
-    //memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, (void*)meshH.prntTransName, meshH.prntTransNameLen);
+	*(char*)(msg + mainHMem + meshHMem + meshH.meshNameLen-1) = '\0'; // Insert \0
     memcpy(msg + mainHMem + meshHMem + meshH.meshNameLen, meshVertices.data(), meshVertices.size() * meshVertexMem);
 
     producer->runProducer(gCb, (char*)msg, totPackageSize);
@@ -1731,11 +1512,13 @@ void fMakeCameraMessage(hCameraHeader& gCam)
 	hMainHeader hMainHead;
 	size_t mainMem = sizeof(hMainHead);
 	size_t camMem = sizeof(hCameraHeader);
-
+	/*Assign the cameraCount with 1.*/
 	hMainHead.cameraCount = 1;
+	/*Add one to the camera's name length, to add the '\0' byte.*/
 	gCam.cameraNameLength++;
 	int totalSize = mainMem + camMem + gCam.cameraNameLength;
-
+	
+	/*Mutex lock and unlock for precautions with other messages being sent.*/
 	mtx.lock();
 	memcpy(msg, (void*)&hMainHead, mainMem);
 	memcpy(msg + mainMem, (void*)&gCam, camMem);
@@ -1750,8 +1533,7 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 { /*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
     MStatus res;
     MFnTransform trans(obj);
-	
-	//MObject parentObj;
+
 	hMainHeader mainH;
 	mainH.transformCount = 1;
 	bool hasMeshChild = false;
@@ -1828,37 +1610,11 @@ void fMakeTransformMessage(MObject obj, hTransformHeader transH)
 	}
 }
 
-void fMakeGenericMessage()
-{
-	/*use mtx.lock() before the memcpys', and mtx.unlock() right after producer.runProducer()*/
-}
-
 void fIterateScene()
 {
-	//MStatus res;
-	//MItDag nodeIt(MItDag::TraversalType::kBreadthFirst, MFn::Type::kDagNode, &res);
-
-	//if (res == MStatus::kSuccess)
-	//{
-	//	while (!nodeIt.isDone())
-	//	{
-	//		/*
-	//		If this function is called by iterateScene,
-	//		save all transforms in a queue that you
-	//		loop through after this node iteration is done.
-	//		That way all of the possible children
-	//		(except transforms) are present in the scene.
-	//		*/
-	//		fOnNodeCreate(nodeIt.currentItem(), NULL);
-	//		nodeIt.next();
-	//	}
-	//}
-
 	MStatus res;
-
-	//Think about adding the mesh-callbacks like "OnGeometryChange" with this iterator
+	/*Think about adding the mesh-callbacks like "OnGeometryChange" with this iterator.*/
 	MItDependencyNodes dependNodeIt(MFn::kDependencyNode, &res);
-
 	if (res == MStatus::kSuccess)
 	{
 		while (!dependNodeIt.isDone())
@@ -1999,8 +1755,7 @@ EXPORT MStatus initializePlugin(MObject obj)
 	CHECK_MSTATUS_AND_RETURN_IT(status);
     
 	MGlobal::displayInfo("Maya plugin loaded!");
-	// if res == kSuccess then the plugin has been loaded,
-	// otherwise it has not.
+
 	LPCWSTR mtxName = TEXT("producerMutex");
 	mtx = Mutex(mtxName);
 	fAddCallbacks();

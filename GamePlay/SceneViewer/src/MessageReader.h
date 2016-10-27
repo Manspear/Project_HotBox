@@ -9,6 +9,7 @@
 
 #include <string>
 #include <queue>
+#include <iostream>
 
 class HMessageReader
 {

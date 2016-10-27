@@ -28,6 +28,7 @@ HMessageReader::~HMessageReader()
 void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 {
 	size_t length;
+	/*If the CONSUMER have anything to read, process what have been read.*/
 	if (circBuff.pop(msg, length))
 	{
 		fProcessMessage(msg, scene);
@@ -37,15 +38,9 @@ void HMessageReader::fRead(circularBuffer& circBuff, gameplay::Scene* scene)
 void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* scene)
 {
 	hRemovedObjectHeader* remoh = (hRemovedObjectHeader*)(messageData + sizeof(hMainHeader));
-	//remoh.name = new char[remoh.nameLength + 1];
-	//remoh.name = new char[remoh.nameLength + 1];
-	//memcpy(remoh.name, messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), remoh.nameLength);
-	//(char)remoh.name[remoh.nameLength] = '\0';
+
 	remoh->name = (char*)messageData + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader);
-	//memcpy((char*)remoh.name, &remoh + sizeof(hRemovedObjectHeader), remoh.nameLength);
-	//(char)remoh.name[remoh.nameLength] = '\0';
 	
-	//removedList.push_back(temp);
 	gameplay::Node* nd = scene->findNode(remoh->name);
 	
 	if (nd != NULL)
@@ -59,10 +54,8 @@ void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* 
 
 void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 {
-	/*Here the engine will act as a CONSUMER, to read the messages,
-	Should return the message type we want to use in the update() function.*/
-
-	/*Read the main header to check what type of message to process.*/
+	/*Read the main header to check what type of message to process.
+	NOTE: There always be one message sent for each specific sent from Maya.*/
 	hMainHeader mainHeader = *(hMainHeader*)messageData;
 
 	if (mainHeader.removedObjectCount > 0)
@@ -78,7 +71,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.meshCount; i++)
 		{
-			/*Process meshdata.*/
+			/*Process mesh data.*/
 			fProcessMesh(messageData, scene);
 		}
 	}
@@ -87,7 +80,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.lightCount; i++)
 		{
-			/*Process lightdata.*/
+			/*Process light data.*/
 			fProcessLight(messageData, scene);
 		}
 	}
@@ -96,7 +89,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.cameraCount; i++)
 		{
-			/*Process cameradata.*/
+			/*Process camera data.*/
 			fProcessCamera(messageData, scene);
 		}
 	}
@@ -114,7 +107,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.transformCount; i++)
 		{
-			/*Process transformdata*/
+			/*Process transform data.*/
 			fProcessTransform(messageData, scene);
 		}
 	}
@@ -123,6 +116,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.hierarchyCount; i++)
 		{
+			/*Process hierarchy data.*/
 			fProcessHierarchy(messageData, scene);
 		}
 	}
@@ -131,6 +125,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.childRemovedCount; i++)
 		{
+			/*Process child data when adding.*/
 			fProcessChildChange(messageData, scene, eChangeType::eRemoveChild);
 		}
 	}
@@ -138,6 +133,7 @@ void HMessageReader::fProcessMessage(char* messageData, gameplay::Scene* scene)
 	{
 		for (int i = 0; i < mainHeader.childAddedCount; i++)
 		{
+			/*Process chil data when changing.*/
 			fProcessChildChange(messageData, scene, eChangeType::eAddChild);
 		}
 	}
@@ -175,18 +171,9 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 {
 	/*Read the meshHeader from messageData.*/
 	hMeshHeader* meshHeader = (hMeshHeader*)(messageData + sizeof(hMainHeader));
-//char* meshName	;
-	//meshName = new char[meshHeader.meshNameLen + 1];
-	//memcpy(meshName, messageData + sizeof(hMainHeader) + sizeof(hMeshHeader), meshHeader.meshNameLen);
-	//meshName[meshHeader.meshNameLen] = '\0';
 
 	meshHeader->meshName = messageData + sizeof(hMainHeader) + sizeof(hMeshHeader);
 
-	//hMeshVertex vertList;
-	//vertList.vertexList.resize(meshHeader.vertexCount);
-	//memcpy(&vertList.vertexList[0], messageData + sizeof(hMainHeader) +
-	//	sizeof(hMeshHeader) + meshHeader.meshNameLen + meshHeader.prntTransNameLen,
-	//	meshHeader.vertexCount * sizeof(sBuiltVertex));
 	hVertexHeader* vtxPtr = (hVertexHeader*)(messageData + sizeof(hMainHeader) +
 							sizeof(hMeshHeader) + meshHeader->meshNameLen);
 
@@ -260,17 +247,6 @@ void HMessageReader::fModifyNodeTransform(hTransformHeader* transH, gameplay::No
 	nd->setTranslation(transH->trans);
 	nd->setRotation((gameplay::Quaternion)transH->rot);
 	nd->setScale(transH->scale);
-
-	//nd->translate(transH->trans[0], transH->trans[1], transH->trans[2]);
-	//nd->rotate(transH->rot[0], transH->rot[1], transH->rot[2], transH->rot[3]);
-	//nd->scale(transH->scale[0], transH->scale[1], transH->scale[2]);
-	/*This should only be used if you have more than one child*/
-	//if (transH.childNameLength > 0)
-	//{
-	//	gameplay::Node* child = scene->findNode(transH.childName);
-	//	if (child != NULL)
-	//		nd->addChild(child);
-	//}
 }
 
 void HMessageReader::fProcessTransformQueue(gameplay::Scene* scene)
@@ -381,16 +357,6 @@ void HMessageReader::fProcessChildChange(char * messageData, gameplay::Scene* sc
 
 	if (tp == eChangeType::eRemoveChild)
 	{
-		//gameplay::Vector3 trans = childNode->getTranslation();
-		//gameplay::Quaternion rot = childNode->getRotation();
-		//gameplay::Vector3 scale = childNode->getScale();
-
-		//gameplay::Model* model = static_cast<gameplay::Model*>(childNode->getDrawable());
-		//gameplay::Mesh* mesh = model->getMesh();
-		//gameplay::Material* material = model->getMaterial();
-
-		//gameplay::MaterialParameter* matParam = material->getParameterByIndex(0);
-
 		printf("Childremoved! \n");
 
 		Node* asdif = childNode->clone();
@@ -436,14 +402,14 @@ void HMessageReader::fProcessQueues(gameplay::Scene* scene)
 
 void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 {
+	/*Read the material hMaterialHeader from messageData.*/
 	hMaterialHeader* materialHeader = (hMaterialHeader*)(messageData + sizeof(hMainHeader));
 
 	materialHeader->connectMeshList.resize(materialHeader->numConnectedMeshes);
 
+	/*Read the name of the texture map if one exists.*/
 	if (materialHeader->isTexture == true)
-	{
 		materialHeader->colorMap = (char*)((char*)messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader));
-	}
 
 	int prevSize = 0;
 
@@ -451,44 +417,43 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 	{
 		hMeshConnectMaterialHeader* hConnectMaterial;
 
+		/*Read the hMeshConnectMaterialHeader different depending on if textures exist or not.*/
 		if (materialHeader->isTexture == true)
-		{
 			hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + materialHeader->colorMapLength + prevSize);
-		}
 
 		else
-		{
 			hConnectMaterial = (hMeshConnectMaterialHeader*)(messageData + sizeof(hMainHeader) + sizeof(hMaterialHeader) + prevSize);
-		}
 
+		/*Read one or several names of meshes connected with the material.*/
 		hConnectMaterial->connectMeshName = (char*)((char*)hConnectMaterial + sizeof(hMeshConnectMaterialHeader));
 
 		prevSize += sizeof(hMeshConnectMaterialHeader) + hConnectMaterial->connectMeshNameLength;
 
+		/*If the connected mesh already exists in the scene, obtain and "create/update" it's material and texture.*/
 		gameplay::Node* meshNode = scene->findNode(hConnectMaterial->connectMeshName);
-
 		if (meshNode != NULL)
 		{
 			gameplay::Model* meshModel = static_cast<gameplay::Model*>(meshNode->getDrawable());
 			gameplay::Material* material;
 			gameplay::Texture::Sampler* colorTexture;
 
+			/*If there are textures in the material, set the material for vert and frag shaders for textures.*/
 			if (materialHeader->isTexture == true)
 			{
 				material = meshModel->setMaterial("res/shaders/textured.vert", "res/shaders/textured.frag", "POINT_LIGHT_COUNT 1");
 
-				/*Gameplay3D being retarded because you can't send jpg texture files when creating sampler.*/
+				/*NOTE: Gameplay3D do not support jpg files.*/
 				colorTexture = gameplay::Texture::Sampler::create(materialHeader->colorMap, false);
 
+				/*These filter and wrap modes are set, for now.*/
 				colorTexture->setFilterMode(Texture::LINEAR, Texture::LINEAR);
 				colorTexture->setWrapMode(Texture::CLAMP, Texture::CLAMP);
 			}
-
+			/*If there are no textures in the material, set the material for colored vert and frag shaders.*/
 			else
-			{
 				material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
-			}
-
+		
+			/*First strange thing: render state of Gameplay3D have to be set with the materials of meshes.*/
 			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
 			block->setCullFace(true);
 			block->setDepthTest(true);
@@ -497,29 +462,33 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 
 			material->setStateBlock(block);
 
+			/*Second strange thing: the world, view and projection matrices have to be set also with the material.*/
 			material->setParameterAutoBinding("u_worldViewMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_MATRIX);
 			material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
 			material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
+			/*If the lightNode have a Id, set the light with the material.*/
 			if (scene->findNode(lightNode->getId()))
 			{
+				/*Third strange thing: This is not good that lights are attached to materials. At this
+				moment I can only support one light, which I wanna find a workaround with to add more lights.*/
 				material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
 				material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
 				material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
 			}
-			
+
+			/*Set the material's ambient color.*/
 			material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
 
+			/*Set if there is a texture to the material.*/
 			if (materialHeader->isTexture == true)
-			{
 				material->getParameter("u_diffuseTexture")->setValue(colorTexture);
-			}
 
+			/*Set the material's diffuse color, if there is no texture.*/
 			else
-			{
 				material->getParameter("u_diffuseColor")->setValue(gameplay::Vector4(materialHeader->diffuseColor[0], materialHeader->diffuseColor[1], materialHeader->diffuseColor[2], materialHeader->diffuseColor[3]));
-			}
 
+			/*Set the material to the mesh model.*/
 			meshModel->setMaterial(material);
 		}
 	}
@@ -531,24 +500,20 @@ void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
 	hLightHeader* lightHeader = (hLightHeader*)(messageData + sizeof(hMainHeader));
 
 	lightHeader->lightName = messageData + sizeof(hMainHeader) + sizeof(hLightHeader);
-
+	/*If the light node with the name ID  already exists in the scene, obtain it and update it's value.*/
 	lightNode = scene->findNode(lightHeader->lightName);
-
 	if (lightNode != NULL)
 	{
 		gameplay::Light* light = static_cast<gameplay::Light*>(lightNode->getLight());
-
 		light->setColor(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]));
-
 		lightNode->setLight(light);
 	}
-
+	/*If the light node is new, create a new one and add it to the scene.*/
 	else
 	{
 		lightNode = gameplay::Node::create(lightHeader->lightName);
 
 		gameplay::Light* light = gameplay::Light::createPoint(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]), 100);
-
 		lightNode->setLight(light);
 
 		light->release();
@@ -562,20 +527,11 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 	/*Fill the transformlist vector for this process.*/
 	hTransformHeader* transH = (hTransformHeader*)(messageData + sizeof(hMainHeader));
 	transH->childName = (const char*)(messageData + sizeof(hMainHeader) + sizeof(hTransformHeader));
-	//printf("Trans: %s\n", transH->childName);
+
 	if (transH->childNameLength > 0)
 	{
-		//transH.childName = new char[transH.childNameLength + 1];
-		//memcpy((char*)transH.childName, messageData + sizeof(hMainHeader) + sizeof(hTransformHeader), transH.childNameLength);
 		gameplay::Node* nd = scene->findNode(transH->childName);
 
-		//if (nd == NULL)
-		//{
-		//	/*Add the translate header to a queue!*/
-		//	tranQ.push(*transH);
-		//}
-		//else
-		//{
 		if(nd)
 			fModifyNodeTransform(transH, nd, scene);
 		else
@@ -587,8 +543,6 @@ void HMessageReader::fProcessTransform(char* messageData, gameplay::Scene* scene
 
 			transNameQueue.push(lh);
 		}
-			//delete[] transH.childName;
-		//}
 		/*
 		If you know there is a child, but you can't find it, 
 		try to find it again at a later time.
@@ -616,6 +570,8 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 	{
 		gameplay::Camera* cam = static_cast<gameplay::Camera*>(camNode->getCamera());
 
+		/*The proj Matrix in openGL is slightly different, reason for negating 10 and 14
+		in the matrix, is because maya uses a left hand coordinate system.*/
 		cameraHeader->projMatrix[10] *= -1;
 		cameraHeader->projMatrix[14] *= -1;
 		cam->setProjectionMatrix(cameraHeader->projMatrix);
@@ -623,28 +579,36 @@ void HMessageReader::fProcessCamera(char* messageData, gameplay::Scene* scene)
 		/*Set the current existing camera as active.*/
 		scene->setActiveCamera(cam);
 
+		/*Update the transformation values.*/
+		camNode->setScale(cameraHeader->scale);
 		camNode->setTranslation(cameraHeader->trans);
 		camNode->setRotation(camQuat);
-		camNode->setScale(cameraHeader->scale);
 	}
-
+	/*If the camera is new, create a new camera node and it to the scene.*/
 	else 
 	{
 		camNode = gameplay::Node::create(cameraHeader->cameraName);
 
+		/*If the new camera have ortographic properties, it's proj matrix can be set 
+		to a perspective camera created in Gameplay3D. */
 		gameplay::Camera* cam = gameplay::Camera::createPerspective(0, 0, 0, 0);
 
+		/*The proj Matrix in openGL is slightly different, reason for negating 10 and 14
+		in the matrix, is because maya uses a left hand coordinate system.*/
 		cameraHeader->projMatrix[10] *= -1;
 		cameraHeader->projMatrix[14] *= -1;
 		cam->setProjectionMatrix(cameraHeader->projMatrix);
 
+		/*Set the new camera as active.*/
 		camNode->setCamera(cam);
 		scene->setActiveCamera(cam);
 
-		camNode->setTranslation(cameraHeader->trans);
-		camNode->setRotation(camQuat);
+		/*Set the transformation values for the new camera.*/
 		camNode->setScale(cameraHeader->scale);
+		camNode->setRotation(camQuat);
+		camNode->setTranslation(cameraHeader->trans);
 
+		/*Add the new camera node to the scene.*/
 		scene->addNode(camNode);
 	}
 }

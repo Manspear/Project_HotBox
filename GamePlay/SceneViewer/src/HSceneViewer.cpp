@@ -30,18 +30,7 @@ void HSceneViewer::initialize()
 
 	msgReader = new HMessageReader();
 
-	/*Initialize a light to give the scene light, later a light from Maya will be loaded.*/
-	/*Node* lightNode = Node::create("pointLightShape1");
-
-	Light* light = Light::createPoint(Vector3(1.0f, 1.0f, 1.0f), 200);*/
-
 	setVsync(false);
-
-	/*lightNode->setLight(light);
-	lightNode->translate(Vector3(0, 3, 0));
-	_scene->addNode(lightNode);
-	lightNode->release();
-	light->release();*/
 }
 
 void HSceneViewer::finalize()
@@ -62,7 +51,7 @@ void HSceneViewer::update(float elapsedTime)
 {
 	static float timer = 0;
 	
-	/*Get the information we send from the Maya plugin here.*/
+	/*Get the message information we send from the Maya plugin here.*/
 	msgReader->fRead(msgReader->circBuff, _scene);
 
 	/*
