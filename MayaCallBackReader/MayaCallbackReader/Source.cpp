@@ -65,14 +65,14 @@ std::queue<MObject> gObjQueue;
 std::queue<MObject> gHierarchyQueue;
 std::queue<MObject> gMeshDelayQueue;
 
-void* HelloWorld::creator() { 
-	return new HelloWorld;
-};
-MStatus HelloWorld::doIt(const MArgList& argList)
-{
-	MGlobal::displayInfo("Hello World!");
-	return MS::kSuccess;
-};
+//void* HelloWorld::creator() { 
+//	return new HelloWorld;
+//};
+//MStatus HelloWorld::doIt(const MArgList& argList)
+//{
+//	MGlobal::displayInfo("Hello World!");
+//	return MS::kSuccess;
+//};
 
 /*Saves the names of the object-children of this transform's transform-children*/
 void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::vector<hChildNodeNameHeader>& conh)
