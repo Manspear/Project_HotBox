@@ -32,8 +32,8 @@ float gMeshUpdateTimer;
 float gTransformUpdateTimer;
 float gDt30Fps;
 
-#define BUFFERSIZE 8<<20
-#define MAXMSGSIZE 2<<20
+#define BUFFERSIZE 20<<20
+#define MAXMSGSIZE 5<<20
 #define CHUNKSIZE 256
 
 bool firstActiveCam = true;
@@ -64,6 +64,7 @@ struct sBuiltVertex
 MCallbackIdArray ids;
 std::queue<MObject> gObjQueue;
 std::queue<MObject> gHierarchyQueue;
+std::queue<MObject> gMeshDelayQueue;
 
 void* HelloWorld::creator() { 
 	return new HelloWorld;
@@ -276,7 +277,7 @@ void fOnMeshTopoChange(MObject &node, void *clientData)
     if (res == MStatus::kSuccess)
     {
 		MGlobal::displayInfo("TOPOLOGY2!");
-		fMakeMeshMessage(node, false);
+		//fMakeMeshMessage(node, false);
     }
 }
 
@@ -296,18 +297,29 @@ void fOnMeshAttrChange(MNodeMessage::AttributeMessage attrMessage, MPlug &plug, 
 		
 		if (res == MStatus::kSuccess)
 		{
-			fMakeMeshMessage(temp, false);
+			MGlobal::displayInfo("I GOT CALLED AND THEN MADE A MESHMESSAGE! " + plug.name());
+
+			gMeshDelayQueue.push(temp);
+			//fMakeMeshMessage(temp, false);
 		}
 	}
 	/*When a mesh changes a material, we are only interested in when connections are made and broken.*/
+	/*Gets in here when this mesh's material gets changed. I.E the connection to the old material is broken, OR when the connection to the new material is made*/
 	else if (attrMessage & MNodeMessage::AttributeMessage::kConnectionMade | MNodeMessage::AttributeMessage::kConnectionBroken)
 	{
 		MFnMesh meshFn(plug.node(), &res);
 		if (res == MStatus::kSuccess)
 		{
-			/*Only load the material change on the mesh if the plug name is ".instObjGroups[0]".*/
+			/*
+			Only load the material change on the mesh if the plug name is ".instObjGroups[0]".
+			If we had multiple materials on a mesh, this would only work for the first material.
+			*/
+			
 			if (plug.name() == MString(meshFn.name() + ".instObjGroups[0]"))
+			{
+				MGlobal::displayInfo("I GOT CALLED AND MADE A MATERIAL" + plug.name());
 				fLoadMaterial(plug.node());
+			}
 		}
 	}
 }
@@ -396,6 +408,10 @@ void fMeshAddCbks(MObject& node, void* clientData)
         if (res == MStatus::kSuccess)
             ids.append(id);
 
+		/*
+		Triggers on extrudes. Extrudes cannot be displayed because a change of material is necessary 
+		for the mesh to be displayed in Gameplay3d.
+		*/
         id = MPolyMessage::addPolyTopologyChangedCallback(node, fOnMeshTopoChange, NULL, &res);
         if (res == MStatus::kSuccess)
         {
@@ -1447,6 +1463,11 @@ void fOnElapsedTime(float elapsedTime, float lastTime, void *clientData)
 		fMakeHierarchyMessage(gHierarchyQueue.front());
 		gHierarchyQueue.pop();
 	}
+	if (gMeshDelayQueue.size() > 0)
+	{
+		fMakeMeshMessage(gMeshDelayQueue.front(), true);
+		gMeshDelayQueue.pop();
+	}
 }
 
 void fMakeMeshMessage(MObject obj, bool isFromQueue)
@@ -1674,7 +1695,7 @@ void fAddCallbacks()
 		MGlobal::displayInfo("nameChange success!");
 		ids.append(temp);
 	}
-	temp = MTimerMessage::addTimerCallback(0.03, fOnElapsedTime, NULL, &res);
+	temp = MTimerMessage::addTimerCallback(0.06, fOnElapsedTime, NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
 		MGlobal::displayInfo("timerFunc success!");
@@ -1699,6 +1720,8 @@ EXPORT MStatus initializePlugin(MObject obj)
 
 	LPCWSTR mtxName = TEXT("producerMutex");
 	mtx = Mutex(mtxName);
+
+	/*THIS IS WHERE WE ADD CALLBACKS*/
 	fAddCallbacks();
 
 	gCb = new circularBuffer;

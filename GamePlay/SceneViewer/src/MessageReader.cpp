@@ -2,7 +2,7 @@
 
 HMessageReader::HMessageReader()
 {
-	bufferSize = 8 << 20;
+	bufferSize = 200 << 20;
 	chunkSize = 256;
 	maxSize = bufferSize / 4;
 	msg = new char[maxSize];
@@ -187,7 +187,7 @@ void HMessageReader::fProcessMesh(char* messageData, gameplay::Scene* scene)
 		else 
 		if (model->getMesh()->getVertexCount() != meshHeader->vertexCount)
 		{
-			nd->setDrawable(NULL);
+			//nd->setDrawable(NULL);
 			fRefreshMeshNode(vtxPtr, meshHeader, nd, scene);
 		}
 	}
@@ -211,6 +211,14 @@ void HMessageReader::fRefreshMeshNode(hVertexHeader* vertList,
 
 	gameplay::Model* meshModel = gameplay::Model::create(mesh);
 	mesh->release();
+
+	/*Get the material of the old model*/
+	gameplay::Model* model = static_cast<gameplay::Model*>(nd->getDrawable());
+	gameplay::Material* oldMat = model->getMaterial();
+
+	meshModel->setMaterial(oldMat);
+
+	oldMat->addRef();
 
 	nd->setDrawable(meshModel);
 
