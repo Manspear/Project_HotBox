@@ -14,6 +14,7 @@ void Consumer::runConsumer(circularBuffer& buffInst)
 		printf("%s\n", msg);
 		messageCount++;
 	}
+	delete[] msg;
 }
 
 Consumer::Consumer()

@@ -8,6 +8,7 @@ class HelloWorld : public MPxCommand
 {
 public:
 	HelloWorld(){};
+	~HelloWorld();
 	virtual MStatus doIt(const MArgList&);
 	static void* creator();
 };

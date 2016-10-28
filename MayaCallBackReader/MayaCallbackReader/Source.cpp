@@ -19,7 +19,6 @@ void fMakeCameraMessage(hCameraHeader& gCam);
 
 void fLoadMaterial(MObject& node);
 void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData);
-void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData);
 
 void fTransAddCbks(MObject& node, void* clientData);
 circularBuffer* gCb;
@@ -84,7 +83,6 @@ void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::v
 	*/
 	hChildNodeNameHeader lconh;
 
-	bool hasTransChild = false;
 	MStatus res;
 
 	if (res == MStatus::kSuccess)
@@ -101,7 +99,6 @@ void fFindChildrenOfTransform(MFnTransform& trans, hHierarchyHeader& coh, std::v
 			{
 				if (childObj.hasFn(MFn::kTransform))
 				{
-					hasTransChild = true;
 					MFnTransform tranfn(childObj, &res);
 					if (res == MStatus::kSuccess)
 					{
@@ -201,66 +198,73 @@ void fMakeHierarchyMessage(MObject obj)
 
 void fLoadMesh(MFnMesh& mesh, bool isFromQueue, std::vector<sBuiltVertex> &allVert)
 {
-    MIntArray normalCnts;
-    MIntArray normalIDs;
-    mesh.getNormalIds(normalCnts, normalIDs);
-
-    /*FUCK INDEXING! LET'S DO IT THE SHITTY WAY!!!*/
     MStatus res;
     MIntArray triCnt;
     MIntArray triVert; //vertex Ids for each tri vertex
-
-    const float * rwPnts = mesh.getRawPoints(&res);
-    const float * rwNrmls = mesh.getRawNormals(&res);
 	
 	MIntArray vertexCount;
-	//Indices for raw pnts //polygon lvl // 24 for cube
-	MIntArray vertList;
-	mesh.getVertices(vertexCount, vertList);
-	//Now get indices for vertList!
-	//triIndices index into the vertList!
-	MIntArray triCount;
-	MIntArray triIndices;
-	mesh.getTriangleOffsets(triCount, triIndices);
 
-	MPointArray pntArr;
+	mesh.getTriangles(triCnt, triVert);
+
+	allVert.resize(triVert.length());
+
 	MVector tempVec;
 	MPoint tempPoint;
-	mesh.getTriangles(triCnt, triVert);
-	allVert.resize(triVert.length());
+	/*In this loop we get both the normals and the points*/
+    for (int i = 0; i < allVert.size(); i++)
+    {
+		/*
+		Since we get the normals based on the control point list, and not
+		by per-triangle-vertex, the normal we get is always the average
+		of all the per-triangle-normals connected to that control point
+		*/
+        mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);
+
+		/*
+		This is the ideal usage scenario for getPoint, since the 
+		triVert-list contains indexes right into the control-point-list
+		*/
+        mesh.getPoint(triVert[i], tempPoint, MSpace::kObject);
+		
+        allVert[i].pnt.x = tempPoint.x;
+        allVert[i].pnt.y = tempPoint.y;
+        allVert[i].pnt.z = tempPoint.z;
+
+        allVert[i].nor.x = tempVec.x;
+        allVert[i].nor.y = tempVec.y;
+        allVert[i].nor.z = tempVec.z;
+    }
 
 	MStringArray uvSetNames;
 	mesh.getUVSetNames(uvSetNames);
 
+	/*Get the UV list*/
 	MFloatArray u;
 	MFloatArray v;
 	mesh.getUVs(u, v);
+
+	/*Get the UV-index per polygon*/
 	MIntArray uvCount;
 	MIntArray uvIDs;
 	mesh.getAssignedUVs(uvCount, uvIDs, &uvSetNames[0]);
+
+	/*
+	Get the polygon-vertex-index per triangle vertex.
+	(for cube)
+	UVList(14) <-- udIDs(24) <-- triIndices(36)
+	*/
+	MIntArray triCount;
+	MIntArray triIndices;
+	mesh.getTriangleOffsets(triCount, triIndices);
 	
+	sUV uv;
+	/*In this loop we get UVs. Looping per polygon vertex*/
 	for (int i = 0; i < allVert.size(); i++)
 	{
-		sUV uv;
 		uv.u = u[uvIDs[triIndices[i]]];
 		uv.v = v[uvIDs[triIndices[i]]];
 		allVert[i].uv = uv;
 	}
-
-    for (int i = 0; i < allVert.size(); i++)
-    {
-        mesh.getVertexNormal(triVert[i], tempVec, MSpace::kObject);  //<-- These used!
-        mesh.getPoint(triVert[i], tempPoint, MSpace::kObject);
-		//mesh.getUV
-        allVert[i].pnt.x = tempPoint.x;
-        allVert[i].pnt.y = tempPoint.y;
-        allVert[i].pnt.z = tempPoint.z;
-        allVert[i].nor.x = tempVec.x;
-        allVert[i].nor.y = tempVec.y;
-        allVert[i].nor.z = tempVec.z;
-
-        pntArr.append(tempPoint);
-    }
 }
 
 /*
@@ -476,6 +480,8 @@ void fLoadCamera()
 
 void fCameraChanged(const MString &str, void* clientData)
 {
+	//A static variable is only initialized once. So after the first execution, this line gets ignored by the compiler.
+	static MFloatMatrix oldProjMatrix;
 	static MMatrix oldMat;
 	hCameraHeader hCam;
 	MStatus res;
@@ -499,8 +505,6 @@ void fCameraChanged(const MString &str, void* clientData)
 				MMatrix newMat = fnTransform.transformationMatrix();
 
 				MFloatMatrix projMatrix = camFn.projectionMatrix();
-
-				static MFloatMatrix oldProjMatrix = projMatrix;
 
 				memcpy(hCam.projMatrix, &camFn.projectionMatrix(), sizeof(MFloatMatrix));
 				hCam.cameraName = camFn.name().asChar();
@@ -697,18 +701,18 @@ void fFindMeshConnectedToMaterial(MObject shaderNode, hMaterialHeader& hMaterial
 
 				/*Find the "dagSetMembers" plug in the SG, which connects to one or several meshes.*/
 				MPlug dagSetMemberPlug = shadingNode.findPlug("dagSetMembers", &res);
-				MPlugArray meshsConnectedToSG;
+				MPlugArray instObjGroups;
 
 				/*If there are Dag Set Members connected to the SG, loop through and obtain the mesh information.*/
 				for (int dagSetIndex = 0; dagSetIndex < dagSetMemberPlug.numConnectedElements(); dagSetIndex++)
 				{
-					dagSetMemberPlug[dagSetIndex].connectedTo(meshsConnectedToSG, true, false, &res);
+					dagSetMemberPlug[dagSetIndex].connectedTo(instObjGroups, true, false, &res);
 					/*If there is a mesh in this dag set Member array index, process it.*/
-					if (meshsConnectedToSG.length())
+					if (instObjGroups.length())
 					{
-						for (int meshIndex = 0; meshIndex < meshsConnectedToSG.length(); meshIndex++)
+						for (int meshIndex = 0; meshIndex < instObjGroups.length(); meshIndex++)
 						{
-							MFnMesh mesh(meshsConnectedToSG[meshIndex].node());
+							MFnMesh mesh(instObjGroups[meshIndex].node());
 							/*Strangely there is a shape called "shaderBallGeomShape!", if we find it
 							then we simply skip it. No need to process this strange shape.*/
 							if (mesh.name() == "shaderBallGeomShape1")
@@ -846,17 +850,6 @@ void fOnMaterialAttrChanges(MNodeMessage::AttributeMessage attrMessage, MPlug& p
 	}
 }
 
-void fOnMaterialChange(MNodeMessage::AttributeMessage attrMessage, MPlug& plug, MPlug& otherPlug, void* clientData)
-{
-	if (attrMessage & MNodeMessage::AttributeMessage::kConnectionMade | MNodeMessage::AttributeMessage::kConnectionBroken)
-	{
-		MGlobal::displayInfo(plug.name() + " " + otherPlug.name());
-		MStatus res;
-
-		fLoadMaterial(plug.node());
-	}
-}
-
 void fLoadMaterial(MObject& node)
 {
 	MStatus res;
@@ -876,7 +869,10 @@ void fLoadMaterial(MObject& node)
 		/*Find the surfaced shader connected with the shading group.*/
 		connectedShader = fFindShader(connectedSet);
 	}
-	/*If the input is a surface shader, assign this directly to the variable "connectedShader".*/
+	/*
+	If the input is a surface shader, assign this directly to the variable "connectedShader".
+	As of now this else if never gets entered.
+	*/
 	else if (node.hasFn(MFn::kLambert) || node.hasFn(MFn::kBlinn) || node.hasFn(MFn::kPhong))
 	{
 		connectedShader = node;
@@ -1355,6 +1351,7 @@ void fOnNodeCreate(MObject& node, void *clientData)
 		}
         case(eNodeType::dagNode):
         {
+			/*THINK: comment this out?*/
             MFnDagNode dagFn(node, &res);
             if (res == MStatus::kSuccess)
                 fDagNodeAddCbks(node, clientData);
@@ -1713,9 +1710,9 @@ EXPORT MStatus initializePlugin(MObject obj)
 	if (MFAIL(res)) {
 		CHECK_MSTATUS(res);
 	}
-	MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
-	CHECK_MSTATUS_AND_RETURN_IT(status);
-    
+	//MStatus status = myPlugin.registerCommand("helloWorld", HelloWorld::creator);
+	//CHECK_MSTATUS_AND_RETURN_IT(status);
+ //   
 	MGlobal::displayInfo("Maya plugin loaded!");
 
 	LPCWSTR mtxName = TEXT("producerMutex");
@@ -1753,8 +1750,8 @@ EXPORT MStatus uninitializePlugin(MObject obj)
 	// if any resources have been allocated, release and free here before
 	// returning...
 	MMessage::removeCallbacks(ids);
-	MStatus status = plugin.deregisterCommand("helloWorld");
-	CHECK_MSTATUS_AND_RETURN_IT(status);
+	//MStatus status = plugin.deregisterCommand("helloWorld");
+	//CHECK_MSTATUS_AND_RETURN_IT(status);
 	MGlobal::displayInfo("Maya plugin unloaded!");
 
 	delete gCb;

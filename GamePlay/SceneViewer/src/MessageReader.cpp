@@ -218,7 +218,7 @@ void HMessageReader::fRefreshMeshNode(hVertexHeader* vertList,
 
 	meshModel->setMaterial(oldMat);
 
-	oldMat->addRef();
+	//oldMat->addRef();
 
 	nd->setDrawable(meshModel);
 
