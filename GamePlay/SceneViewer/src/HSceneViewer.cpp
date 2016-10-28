@@ -6,7 +6,6 @@ HSceneViewer game;
 HSceneViewer::HSceneViewer()
     : _scene(NULL), _wireframe(false)
 {
-
 }
 
 HSceneViewer::~HSceneViewer()
