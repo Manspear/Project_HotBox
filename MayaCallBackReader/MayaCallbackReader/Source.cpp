@@ -380,19 +380,9 @@ void fOnNodeAttrAddedRemoved(MNodeMessage::AttributeMessage attrMessage, MPlug &
 	MGlobal::displayInfo("Attribute Added or Removed! " + plug.info());
 }
 
-void fOnComponentChange(MUintArray componentIds[], unsigned int count, void *clientData)
-{
-    MGlobal::displayInfo("I AM CHANGED!");
-}
-
 void fOnGeometryDelete(MObject &node, MDGModifier &modifier, void *clientData)
 {
 	MGlobal::displayInfo("GEOMETRY DELETED!");
-}
-
-void fOnModelNodeRemoved (MObject &node, void *clientData)
-{
-	MGlobal::displayInfo("NODE REMOVED FROM MODEL!");
 }
 
 void fMeshAddCbks(MObject& node, void* clientData)
@@ -418,13 +408,6 @@ void fMeshAddCbks(MObject& node, void* clientData)
 		{
 			MGlobal::displayInfo("Delete SUcess!");
 			ids.append(id);
-		}
-
-		id = MModelMessage::addNodeRemovedFromModelCallback(node, fOnModelNodeRemoved, NULL, &res);
-		if (res == MStatus::kSuccess)
-		{
-			ids.append(id);
-			MGlobal::displayInfo("Delete SUcess!");
 		}
 	}
 }
@@ -1143,7 +1126,6 @@ void fTransAddCbks(MObject& node, void* clientData)
 		{
 			ids.append(id);
 		}
-	
 		MDagPath pth;
 		transFn.getPath(pth);
 
@@ -1657,29 +1639,12 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 	mtx.unlock();
 }
 
-void fOnNodeRemoved(MObject& node, void* clientData)
-{
-	MGlobal::displayInfo(MString("I got removed! " + MString(node.apiTypeStr())));
-}
-
 void fOnMeshRemoved(MObject& node, void* clientData)
 {
 	MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
 
 	/*Make a meshRemoved message*/
 	fMakeRemovedMessage(node, eNodeType::meshNode);
-}
-void fOnTransformRemoved(MObject& node, void* clientData)
-{
-	MGlobal::displayInfo(MString("Transform got removed! ") + MString(node.apiTypeStr()));
-}
-void fOnCameraRemoved(MObject& node, void* clientData)
-{
-	MGlobal::displayInfo(MString("Camera got removed! ") + MString(node.apiTypeStr()));
-}
-void fOnPointLightRemoved(MObject& node, void* clientData)
-{
-	MGlobal::displayInfo(MString("pointLight got removed! ") + MString(node.apiTypeStr()));
 }
 
 void fAddCallbacks()
@@ -1697,34 +1662,10 @@ void fAddCallbacks()
 		ids.append(temp);
 	}
 	
-	temp = MDGMessage::addNodeRemovedCallback(fOnNodeRemoved, kDefaultNodeType, NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-		MGlobal::displayInfo("nodeRemoved success!");
-		ids.append(temp);
-	}
 	temp = MDGMessage::addNodeRemovedCallback(fOnMeshRemoved, "mesh", NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
 		MGlobal::displayInfo("meshRemoved success!");
-		ids.append(temp);
-	}
-	temp = MDGMessage::addNodeRemovedCallback(fOnTransformRemoved, "transform", NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-		MGlobal::displayInfo("transformRemoved success!");
-		ids.append(temp);
-	}
-	temp = MDGMessage::addNodeRemovedCallback(fOnCameraRemoved, "camera", NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-		MGlobal::displayInfo("cameraRemoved success!");
-		ids.append(temp);
-	}
-	temp = MDGMessage::addNodeRemovedCallback(fOnPointLightRemoved, "pointLight", NULL, &res);
-	if (res == MStatus::kSuccess)
-	{
-		MGlobal::displayInfo("pointLightRemoved success!");
 		ids.append(temp);
 	}
 	temp = MNodeMessage::addNameChangedCallback(MObject::kNullObj, fOnNodeNameChange, NULL, &res);
