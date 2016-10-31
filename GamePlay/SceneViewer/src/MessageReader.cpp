@@ -12,8 +12,6 @@ HMessageReader::HMessageReader()
 
 	messageCount = 0;
 
-	lightNode = gameplay::Node::create();
-
 	LPCWSTR msgBuffName = TEXT("MessageBuffer");
 	LPCWSTR varBuffName = TEXT("VarBuffer");
 
@@ -49,6 +47,17 @@ void HMessageReader::fProcessDeletedObject(char * messageData, gameplay::Scene* 
 		gameplay::Node* parNd = nd->getParent();
 		if (parNd != NULL)
 			parNd->removeChild(nd);
+
+		if (lightNodes.size() > 0)
+		{
+			for (int lIndex = 0; lIndex < lightNodes.size(); lIndex++)
+			{
+				const char* lightId = lightNodes[lIndex]->getId();
+				/*If the removed light has the same name as the node in the list, remove it from list.*/
+				if (strcmp(remoh->name, lightId) == 0)
+					lightNodes.erase(lightNodes.begin() + lIndex);
+			}
+		}
 	}
 }
 
@@ -445,10 +454,13 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 			gameplay::Material* material;
 			gameplay::Texture::Sampler* colorTexture;
 
+			/*Each new point light will increase the light node list and the count increases.*/
+			std::string pLightCount = "POINT_LIGHT_COUNT " + std::to_string(lightNodes.size());
+
 			/*If there are textures in the material, set the material for vert and frag shaders for textures.*/
 			if (materialHeader->isTexture == true)
 			{
-				material = meshModel->setMaterial("res/shaders/textured.vert", "res/shaders/textured.frag", "POINT_LIGHT_COUNT 1");
+				material = meshModel->setMaterial("res/shaders/textured.vert", "res/shaders/textured.frag", pLightCount.c_str());
 
 				/*NOTE: Gameplay3D do not support jpg files.*/
 				colorTexture = gameplay::Texture::Sampler::create(materialHeader->colorMap, false);
@@ -459,7 +471,7 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 			}
 			/*If there are no textures in the material, set the material for colored vert and frag shaders.*/
 			else
-				material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", "POINT_LIGHT_COUNT 1");
+				material = meshModel->setMaterial("res/shaders/colored.vert", "res/shaders/colored.frag", pLightCount.c_str());
 		
 			/*First strange thing: render state of Gameplay3D have to be set with the materials of meshes.*/
 			gameplay::RenderState::StateBlock* block = gameplay::RenderState::StateBlock::create();
@@ -475,16 +487,23 @@ void HMessageReader::fProcessMaterial(char* messageData, gameplay::Scene* scene)
 			material->setParameterAutoBinding("u_worldViewProjectionMatrix", gameplay::RenderState::AutoBinding::WORLD_VIEW_PROJECTION_MATRIX);
 			material->setParameterAutoBinding("u_inverseTransposeWorldViewMatrix", gameplay::RenderState::AutoBinding::INVERSE_TRANSPOSE_WORLD_VIEW_MATRIX);
 
-			/*If the lightNode have a Id, set the light with the material.*/
-			if (scene->findNode(lightNode->getId()))
+			for (int i = 0; i < lightNodes.size(); i++)
 			{
-				/*Third strange thing: This is not good that lights are attached to materials. At this
-				moment I can only support one light, which I wanna find a workaround with to add more lights.*/
-				material->getParameter("u_pointLightColor[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getColor);
-				material->getParameter("u_pointLightRangeInverse[0]")->bindValue(lightNode->getLight(), &gameplay::Light::getRangeInverse);
-				material->getParameter("u_pointLightPosition[0]")->bindValue(lightNode, &gameplay::Node::getTranslationView);
-			}
+				/*If the lightNode have a Id, set the light with the material.*/
+				if (scene->findNode(lightNodes[i]->getId()));
+				{
+					std::string stringCounter = std::to_string(i);
 
+					std::string pLightColor = "u_pointLightColor[" + stringCounter + "]";
+					std::string pLightRangeInv = "u_pointLightRangeInverse[" + stringCounter + "]";
+					std::string pLightPos = "u_pointLightPosition[" + stringCounter + "]";
+					
+					material->getParameter(pLightColor.c_str())->bindValue(lightNodes[i]->getLight(), &gameplay::Light::getColor);
+					material->getParameter(pLightRangeInv.c_str())->bindValue(lightNodes[i]->getLight(), &gameplay::Light::getRangeInverse);
+					material->getParameter(pLightPos.c_str())->bindValue(lightNodes[i], &gameplay::Node::getTranslationView);
+				}
+			}
+			
 			/*Set the material's ambient color.*/
 			material->getParameter("u_ambientColor")->setValue(gameplay::Vector3(materialHeader->ambient[0], materialHeader->ambient[1], materialHeader->ambient[2]));
 
@@ -509,22 +528,25 @@ void HMessageReader::fProcessLight(char* messageData, gameplay::Scene* scene)
 
 	lightHeader->lightName = messageData + sizeof(hMainHeader) + sizeof(hLightHeader);
 	/*If the light node with the name ID  already exists in the scene, obtain it and update it's value.*/
-	lightNode = scene->findNode(lightHeader->lightName);
+	gameplay::Node* lightNode = scene->findNode(lightHeader->lightName);
 	if (lightNode != NULL)
 	{
 		gameplay::Light* light = static_cast<gameplay::Light*>(lightNode->getLight());
 		light->setColor(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]));
+		light->setRange(lightHeader->range);
 		lightNode->setLight(light);
 	}
 	/*If the light node is new, create a new one and add it to the scene.*/
 	else
 	{
-		lightNode = gameplay::Node::create(lightHeader->lightName);
+		gameplay::Node* lightNode = gameplay::Node::create(lightHeader->lightName);
 
-		gameplay::Light* light = gameplay::Light::createPoint(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]), 100);
+		gameplay::Light* light = gameplay::Light::createPoint(gameplay::Vector3(lightHeader->color[0], lightHeader->color[1], lightHeader->color[2]), lightHeader->range);
 		lightNode->setLight(light);
 
 		light->release();
+
+		lightNodes.push_back(lightNode);
 
 		scene->addNode(lightNode);
 	}

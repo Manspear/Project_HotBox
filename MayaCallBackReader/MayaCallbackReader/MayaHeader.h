@@ -106,9 +106,8 @@ struct hLightHeader
 	unsigned int lightNameLength;
 	const char* lightName;
 
-	unsigned int lightId;
-
     float color[3];
+	float range;
 };
 
 struct hMeshConnectMaterialHeader

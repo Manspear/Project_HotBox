@@ -37,8 +37,6 @@ float gDt30Fps;
 
 bool firstActiveCam = true;
 
-int lightCounter = 0;
-
 char* msg;
 
 struct sPoint
@@ -1210,20 +1208,23 @@ void fOnLightAttributeChanges(MNodeMessage::AttributeMessage attrMessage, MPlug&
 		{
 			hLightHeader hLight;
 
-			/*Obtain the color and intensity of the light.*/
+			/*Obtain the color, intensity and range of the light.*/
 			MColor lightColor = pointLightFn.color(&res);
 			float intensity = pointLightFn.intensity(&res);
+
+			/*The center of illumination will always be the same, with 5 as value.*/
+			float centerIllum = pointLightFn.centerOfIllumination(&res);
 
 			/*RGB values of the color need to be multiplied with the intensity.*/
 			hLight.color[0] = lightColor.r * intensity;
 			hLight.color[1] = lightColor.g * intensity;
 			hLight.color[2] = lightColor.b * intensity;
 
+			MGlobal::displayInfo(MString() + centerIllum);
+			hLight.range = centerIllum;
+
 			hLight.lightName = pointLightFn.name().asChar();
 			hLight.lightNameLength = pointLightFn.name().length() + 1;
-
-			/*Light Id already exists in gameplay3D. Assign default value.*/
-			hLight.lightId = 1137;
 
 			/*Light attribute changes are obtained, send a light message.*/
 			fMakeLightMessage(hLight);
@@ -1253,24 +1254,35 @@ void fLoadLight(MObject lightNode)
 	if (res == MStatus::kSuccess)
 	{
 		hLightHeader hLight;
-		/*Obtain both the color and intensity of light.*/
+		/*Obtain the color, intensity and range of the light.*/
 		MColor lightColor = pointLightFn.color(&res);
 		float intensity = pointLightFn.intensity(&res);
+		float centerIllum = pointLightFn.centerOfIllumination(&res);
 
 		/*The RGB values of the color should be multiplied with the intensity.*/
 		hLight.color[0] = lightColor.r * intensity;
 		hLight.color[1] = lightColor.g * intensity;
 		hLight.color[2] = lightColor.b * intensity; 
 
+		/*The center of illumination will always be the same, with 5 as value.*/
+		hLight.range = centerIllum;
+
 		/*Obtaining the name and length for ID usage in Gameplay3D*/
 		hLight.lightName = pointLightFn.name().asChar();
 		hLight.lightNameLength = pointLightFn.name().length() + 1;
-		hLight.lightId = lightCounter;
 
 		/*Light attributes are obtained, send a light message.*/
 		fMakeLightMessage(hLight);
 
-		lightCounter++;
+		/*Update all materials in Gameplay3D when adding point lights.*/
+		MItDependencyNodes matIter(MFn::kLambert, &res);
+
+		while (!matIter.isDone())
+		{
+			fLoadMaterial(matIter.item());
+
+			matIter.next();
+		}
 	}
 }
 
@@ -1648,21 +1660,67 @@ void fMakeRemovedMessage(MObject& node, eNodeType nodeType)
 			/*Then add the '\0'*/
 			*(char*)(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength - 1) = '\0';
 			MGlobal::displayInfo(MString("Deleted mesh: ") + MString(mesh.name()));
-		}
+
+			producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
+		}	
 	}
-	if (res == MStatus::kSuccess)
+
+	else if (nodeType == eNodeType::pointLightNode)
 	{
-		producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
+		MFnPointLight pointLight(node, &res);
+		if (res == MStatus::kSuccess)
+		{
+			roh.nodeType = eNodeType::pointLightNode;
+			roh.nameLength = std::strlen(pointLight.name().asChar()) + 1;
+			memcpy(msg, &mainH, sizeof(hMainHeader));
+			/*First removed object header*/
+			memcpy(msg + sizeof(hMainHeader), &roh, sizeof(hRemovedObjectHeader));
+			/*Then the name*/
+			memcpy(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader), pointLight.name().asChar(), roh.nameLength - 1);
+			/*Then add the '\0'*/
+			*(char*)(msg + sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength - 1) = '\0';
+			MGlobal::displayInfo(MString("Deleted light: ") + MString(pointLight.name()));
+
+			producer->runProducer(gCb, msg, sizeof(hMainHeader) + sizeof(hRemovedObjectHeader) + roh.nameLength);
+
+			MItDependencyNodes matIter(MFn::kLambert, &res);
+			if (res == MStatus::kSuccess)
+			{
+				while (!matIter.isDone())
+				{
+					fLoadMaterial(matIter.item());
+					matIter.next();
+				}
+			}
+		}
 	}
 	mtx.unlock();
 }
 
 void fOnMeshRemoved(MObject& node, void* clientData)
 {
-	MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
+	if (node.hasFn(MFn::kMesh))
+	{
+		MGlobal::displayInfo(MString("Mesh got removed! ") + MString(node.apiTypeStr()));
+		/*Make a meshRemoved message*/
+		fMakeRemovedMessage(node, eNodeType::meshNode);
+	}
 
-	/*Make a meshRemoved message*/
-	fMakeRemovedMessage(node, eNodeType::meshNode);
+	else if (node.hasFn(MFn::kDagNode))
+	{
+		MFnDagNode dagFn(node);
+
+		MDagPath pLightPath;
+		if (dagFn.getPath(pLightPath))
+		{
+			if (pLightPath.node().hasFn(MFn::kPointLight))
+			{
+				MGlobal::displayInfo(MString("Point light got removed! ") + MString(node.apiTypeStr()));
+				/*Make a pointLightRemoved message.*/
+				fMakeRemovedMessage(pLightPath.node(), eNodeType::pointLightNode);
+			}
+		}
+	}
 }
 
 void fAddCallbacks()
@@ -1680,7 +1738,7 @@ void fAddCallbacks()
 		ids.append(temp);
 	}
 	
-	temp = MDGMessage::addNodeRemovedCallback(fOnMeshRemoved, "mesh", NULL, &res);
+	temp = MDGMessage::addNodeRemovedCallback(fOnMeshRemoved, "dependNode", NULL, &res);
 	if (res == MStatus::kSuccess)
 	{
 		MGlobal::displayInfo("meshRemoved success!");

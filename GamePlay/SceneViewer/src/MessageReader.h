@@ -130,7 +130,7 @@ private:
 
 	char* msg;
 
-	gameplay::Node* lightNode;
+	std::vector<gameplay::Node*> lightNodes;
 };
 
 
